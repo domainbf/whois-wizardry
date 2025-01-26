@@ -25,20 +25,14 @@ const Index = () => {
     setWhoisData(null);
 
     try {
-      // 模拟 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const mockData = `Domain Name: ${domain}
-Registrar: Example Registrar, LLC
-Whois Server: whois.example.com
-Updated Date: 2024-01-20T10:00:00Z
-Creation Date: 2020-01-20T10:00:00Z
-Registry Expiry Date: 2025-01-20T10:00:00Z
-Registrar URL: http://www.example.com
-Registrar WHOIS Server: whois.example.com
-Registrar Abuse Contact Email: abuse@example.com
-Registrar Abuse Contact Phone: +1.1234567890`;
+      const response = await fetch(`https://whois.freeaiapi.xyz/?domain=${encodeURIComponent(domain)}`);
       
-      setWhoisData(mockData);
+      if (!response.ok) {
+        throw new Error("查询失败");
+      }
+
+      const data = await response.text();
+      setWhoisData(data);
     } catch (err) {
       setError("查询失败,请稍后重试");
       toast({
