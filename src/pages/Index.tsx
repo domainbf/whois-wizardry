@@ -2,6 +2,7 @@ import { useState } from "react";
 import DomainInput from "@/components/DomainInput";
 import WhoisResult from "@/components/WhoisResult";
 import { useToast } from "@/components/ui/use-toast";
+import whoisServers from "@/data/whois.json";
 
 const Index = () => {
   const [domain, setDomain] = useState("");
@@ -9,6 +10,12 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  const getWhoisServer = (domain: string) => {
+    const tld = domain.split('.').pop();
+    if (!tld) return null;
+    return whoisServers[tld as keyof typeof whoisServers];
+  };
 
   const handleWhoisLookup = async () => {
     if (!domain) {
@@ -20,12 +27,23 @@ const Index = () => {
       return;
     }
 
+    const whoisServer = getWhoisServer(domain);
+    if (!whoisServer) {
+      toast({
+        title: "错误",
+        description: "不支持该域名后缀",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setWhoisData(null);
 
     try {
-      const response = await fetch(`https://whois.freeaiapi.xyz/?domain=${encodeURIComponent(domain)}`);
+      // 使用代理服务器进行 WHOIS 查询
+      const response = await fetch(`/api/whois?domain=${encodeURIComponent(domain)}&server=${encodeURIComponent(whoisServer)}`);
       
       if (!response.ok) {
         throw new Error("查询失败");
