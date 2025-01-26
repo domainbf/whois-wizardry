@@ -42,20 +42,33 @@ const Index = () => {
     setWhoisData(null);
 
     try {
-      // 使用代理服务器进行 WHOIS 查询
-      const response = await fetch(`/api/whois?domain=${encodeURIComponent(domain)}&server=${encodeURIComponent(whoisServer)}`);
+      const response = await fetch(`/api/whois?domain=${encodeURIComponent(domain)}&server=${encodeURIComponent(whoisServer)}`, {
+        headers: {
+          'Accept': 'text/plain'
+        }
+      });
       
       if (!response.ok) {
         throw new Error("查询失败");
       }
 
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        throw new Error("服务器返回了无效的响应格式");
+      }
+
       const data = await response.text();
+      if (data.includes('<!DOCTYPE html>')) {
+        throw new Error("服务器返回了无效的响应格式");
+      }
+
       setWhoisData(data);
     } catch (err) {
-      setError("查询失败,请稍后重试");
+      const errorMessage = err instanceof Error ? err.message : "查询失败,请稍后重试";
+      setError(errorMessage);
       toast({
         title: "错误",
-        description: "查询失败,请稍后重试",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
