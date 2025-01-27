@@ -42,14 +42,15 @@ const Index = () => {
     setWhoisData(null);
 
     try {
-      const response = await fetch(
-        `/api/whois?domain=${encodeURIComponent(domain)}&server=${encodeURIComponent(whoisServer)}`,
-        {
-          headers: {
-            'Accept': 'text/plain',
-          }
+      const apiUrl = new URL('/api/whois', window.location.origin);
+      apiUrl.searchParams.append('domain', domain);
+      apiUrl.searchParams.append('server', whoisServer);
+
+      const response = await fetch(apiUrl.toString(), {
+        headers: {
+          'Accept': 'text/plain',
         }
-      );
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: '查询失败' }));
