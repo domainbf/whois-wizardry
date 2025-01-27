@@ -12,13 +12,13 @@ const Index = () => {
   const { toast } = useToast();
 
   const getWhoisServer = (domain: string) => {
-    const tld = domain.split('.').pop();
+    const tld = domain.split('.').pop()?.toLowerCase();
     if (!tld) return null;
     return whoisServers[tld as keyof typeof whoisServers];
   };
 
   const handleWhoisLookup = async () => {
-    if (!domain) {
+    if (!domain.trim()) {
       toast({
         title: "错误",
         description: "请输入域名",
@@ -42,32 +42,27 @@ const Index = () => {
     setWhoisData(null);
 
     try {
-      const response = await fetch(`/api/whois?domain=${encodeURIComponent(domain)}&server=${encodeURIComponent(whoisServer)}`, {
-        headers: {
-          'Accept': 'text/plain'
+      const response = await fetch(
+        `/api/whois?domain=${encodeURIComponent(domain)}&server=${encodeURIComponent(whoisServer)}`,
+        {
+          headers: {
+            'Accept': 'text/plain',
+          }
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error("查询失败");
-      }
+      );
 
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('text/html')) {
-        throw new Error("服务器返回了无效的响应格式");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: '查询失败' }));
+        throw new Error(errorData.error || '查询失败');
       }
 
       const data = await response.text();
-      if (data.includes('<!DOCTYPE html>')) {
-        throw new Error("服务器返回了无效的响应格式");
-      }
-
       setWhoisData(data);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "查询失败,请稍后重试";
+      const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
       setError(errorMessage);
       toast({
-        title: "错误",
+        title: "查询失败",
         description: errorMessage,
         variant: "destructive",
       });
