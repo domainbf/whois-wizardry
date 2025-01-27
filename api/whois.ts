@@ -1,7 +1,7 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import net from 'net';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { Socket } from 'net';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+const handler = async (req: VercelRequest, res: VercelResponse) => {
   const { domain, server } = req.query;
 
   if (!domain || !server) {
@@ -16,11 +16,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('WHOIS查询错误:', error);
     return res.status(500).json({ error: '查询失败' });
   }
-}
+};
 
 function queryWhois(domain: string, server: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const client = new net.Socket();
+    const client = new Socket();
     let data = '';
 
     client.connect(43, server, () => {
@@ -48,3 +48,5 @@ function queryWhois(domain: string, server: string): Promise<string> {
     });
   });
 }
+
+export default handler;
