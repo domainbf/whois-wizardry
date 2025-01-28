@@ -11,6 +11,11 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  const validateDomain = (domain: string) => {
+    const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+    return domainRegex.test(domain);
+  };
+
   const getWhoisServer = (domain: string) => {
     const tld = domain.split('.').pop()?.toLowerCase();
     if (!tld) return null;
@@ -18,7 +23,9 @@ const Index = () => {
   };
 
   const handleWhoisLookup = async () => {
-    if (!domain.trim()) {
+    const trimmedDomain = domain.trim().toLowerCase();
+    
+    if (!trimmedDomain) {
       toast({
         title: "错误",
         description: "请输入域名",
@@ -27,7 +34,16 @@ const Index = () => {
       return;
     }
 
-    const whoisServer = getWhoisServer(domain);
+    if (!validateDomain(trimmedDomain)) {
+      toast({
+        title: "错误",
+        description: "请输入有效的域名格式 (例如: example.com)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const whoisServer = getWhoisServer(trimmedDomain);
     if (!whoisServer) {
       toast({
         title: "错误",
@@ -43,17 +59,16 @@ const Index = () => {
 
     try {
       const apiUrl = new URL('/api/whois', window.location.origin);
-      apiUrl.searchParams.append('domain', domain);
+      apiUrl.searchParams.append('domain', trimmedDomain);
       apiUrl.searchParams.append('server', whoisServer);
 
       const response = await fetch(apiUrl.toString());
+      const data = await response.json();
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: '查询失败' }));
-        throw new Error(errorData.error || '查询失败');
+        throw new Error(data.error || '查询失败');
       }
 
-      const data = await response.json();
       setWhoisData(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
