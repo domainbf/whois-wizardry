@@ -1,15 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { parseWhoIsData } from 'whois-parsed-v2';
 
 // 定义查询接口
 interface WhoisQuery {
   domain: string;
   server: string;
-}
-
-// 定义响应接口
-interface WhoisResponse {
-  data?: string;
-  error?: string;
 }
 
 // WHOIS 查询函数
@@ -76,9 +71,12 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
 
   try {
     // 执行 WHOIS 查询
-    const data = await queryWhois({ domain, server });
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    return res.status(200).send(data);
+    const rawData = await queryWhois({ domain, server });
+    
+    // 解析 WHOIS 数据
+    const parsedData = await parseWhoIsData(rawData);
+    
+    return res.status(200).json(parsedData);
   } catch (error) {
     console.error('WHOIS 查询错误:', error);
     return res.status(500).json({ 

@@ -6,7 +6,7 @@ import whoisServers from "@/data/whois.json";
 
 const Index = () => {
   const [domain, setDomain] = useState("");
-  const [whoisData, setWhoisData] = useState<string | null>(null);
+  const [whoisData, setWhoisData] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -46,18 +46,14 @@ const Index = () => {
       apiUrl.searchParams.append('domain', domain);
       apiUrl.searchParams.append('server', whoisServer);
 
-      const response = await fetch(apiUrl.toString(), {
-        headers: {
-          'Accept': 'text/plain',
-        }
-      });
+      const response = await fetch(apiUrl.toString());
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: '查询失败' }));
         throw new Error(errorData.error || '查询失败');
       }
 
-      const data = await response.text();
+      const data = await response.json();
       setWhoisData(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
