@@ -12,7 +12,7 @@ const Index = () => {
   const { toast } = useToast();
 
   const validateDomain = (domain: string) => {
-    const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
     return domainRegex.test(domain);
   };
 
@@ -58,6 +58,7 @@ const Index = () => {
     setWhoisData(null);
 
     try {
+      console.log('开始查询域名:', trimmedDomain);
       const apiUrl = new URL('/api/whois', window.location.origin);
       apiUrl.searchParams.append('domain', trimmedDomain);
       apiUrl.searchParams.append('server', whoisServer);
@@ -69,8 +70,14 @@ const Index = () => {
         throw new Error(data.error || '查询失败');
       }
 
+      console.log('查询成功:', data);
       setWhoisData(data);
+      toast({
+        title: "成功",
+        description: "域名信息获取成功",
+      });
     } catch (err) {
+      console.error('查询失败:', err);
       const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
       setError(errorMessage);
       toast({
