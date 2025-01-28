@@ -27,9 +27,6 @@ const queryWhois = async ({ domain, server }: WhoisQuery): Promise<string> => {
 
     socket.on('end', () => {
       clearTimeout(timeout);
-      if (!response.trim()) {
-        reject(new Error('未获取到 WHOIS 数据'));
-      }
       resolve(response);
     });
 
@@ -38,6 +35,14 @@ const queryWhois = async ({ domain, server }: WhoisQuery): Promise<string> => {
       reject(err);
     });
   });
+};
+
+const cleanWhoisData = (rawData: string): string => {
+  // 移除特殊字符和不必要的空白
+  return rawData
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
 };
 
 const handler = async (req: VercelRequest, res: VercelResponse) => {
@@ -66,21 +71,30 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
   try {
     console.log(`开始查询域名: ${domain}, 服务器: ${server}`);
     const rawData = await queryWhois({ domain, server });
-    console.log('获取到原始 WHOIS 数据:', rawData);
+    const cleanedData = cleanWhoisData(rawData);
+    console.log('获取到原始 WHOIS 数据:', cleanedData);
     
-    if (!rawData.trim()) {
-      throw new Error('WHOIS 服务器返回空数据');
+    if (!cleanedData) {
+      return res.status(200).json({
+        rawData: cleanedData,
+        error: 'WHOIS 服务器返回空数据'
+      });
     }
 
     try {
-      const parsedData = await parseWhoIsData(rawData);
+      const parsedData = await parseWhoIsData(cleanedData);
+      if (!parsedData || Object.keys(parsedData).length === 0) {
+        return res.status(200).json({
+          rawData: cleanedData,
+          error: '无法解析 WHOIS 数据，显示原始数据'
+        });
+      }
       console.log('WHOIS 数据解析完成:', parsedData);
       return res.status(200).json(parsedData);
     } catch (parseError) {
       console.error('WHOIS 数据解析错误:', parseError);
-      // 如果解析失败，返回原始数据
       return res.status(200).json({
-        rawData,
+        rawData: cleanedData,
         error: '数据解析失败，显示原始数据',
         parseError: parseError instanceof Error ? parseError.message : String(parseError)
       });
