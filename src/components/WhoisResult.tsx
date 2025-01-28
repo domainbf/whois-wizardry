@@ -24,6 +24,18 @@ const WhoisResult = ({ data, error }: WhoisResultProps) => {
     );
   }
 
+  // 如果有原始数据，显示原始数据
+  if (data.rawData) {
+    return (
+      <Card className="w-full max-w-xl p-4 mt-4">
+        <div className="text-amber-500 mb-4">{data.error}</div>
+        <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded">
+          {data.rawData}
+        </pre>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full max-w-xl p-4 mt-4">
       <Table>
@@ -67,7 +79,7 @@ const WhoisResult = ({ data, error }: WhoisResultProps) => {
           {data.nameServers && (
             <TableRow>
               <TableCell className="font-medium">域名服务器</TableCell>
-              <TableCell>{data.nameServers.join(', ')}</TableCell>
+              <TableCell>{Array.isArray(data.nameServers) ? data.nameServers.join(', ') : data.nameServers}</TableCell>
             </TableRow>
           )}
           {data.status && (

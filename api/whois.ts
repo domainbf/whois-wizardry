@@ -27,6 +27,9 @@ const queryWhois = async ({ domain, server }: WhoisQuery): Promise<string> => {
 
     socket.on('end', () => {
       clearTimeout(timeout);
+      if (!response.trim()) {
+        reject(new Error('未获取到 WHOIS 数据'));
+      }
       resolve(response);
     });
 
@@ -63,12 +66,25 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
   try {
     console.log(`开始查询域名: ${domain}, 服务器: ${server}`);
     const rawData = await queryWhois({ domain, server });
-    console.log('获取到原始 WHOIS 数据');
+    console.log('获取到原始 WHOIS 数据:', rawData);
     
-    const parsedData = await parseWhoIsData(rawData);
-    console.log('WHOIS 数据解析完成');
-    
-    return res.status(200).json(parsedData);
+    if (!rawData.trim()) {
+      throw new Error('WHOIS 服务器返回空数据');
+    }
+
+    try {
+      const parsedData = await parseWhoIsData(rawData);
+      console.log('WHOIS 数据解析完成:', parsedData);
+      return res.status(200).json(parsedData);
+    } catch (parseError) {
+      console.error('WHOIS 数据解析错误:', parseError);
+      // 如果解析失败，返回原始数据
+      return res.status(200).json({
+        rawData,
+        error: '数据解析失败，显示原始数据',
+        parseError: parseError instanceof Error ? parseError.message : String(parseError)
+      });
+    }
   } catch (error) {
     console.error('WHOIS 查询错误:', error);
     return res.status(500).json({ 
