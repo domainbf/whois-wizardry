@@ -58,53 +58,33 @@ const Index = () => {
     setWhoisData(null);
 
     try {
-      console.log('开始查询域名:', trimmedDomain);
-      const apiUrl = new URL('/api/whois', window.location.origin);
-      apiUrl.searchParams.append('domain', trimmedDomain);
-      apiUrl.searchParams.append('server', whoisServer);
-
-      const response = await fetch(apiUrl.toString());
+      const response = await fetch(`/api/whois?domain=${trimmedDomain}&server=${whoisServer}`);
       const data = await response.json();
-
+      
       if (!response.ok) {
         throw new Error(data.error || '查询失败');
       }
-
-      console.log('查询成功:', data);
+      
       setWhoisData(data);
-      toast({
-        title: "成功",
-        description: "域名信息获取成功",
-      });
     } catch (err) {
-      console.error('查询失败:', err);
-      const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
-      setError(errorMessage);
-      toast({
-        title: "查询失败",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      setError(err instanceof Error ? err.message : "查询失败，请稍后重试");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center py-20 px-4">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">WHOIS 查询工具</h1>
-        <p className="text-slate-600">输入域名查询注册信息</p>
+    <div className="container mx-auto py-8 px-4">
+      <h1 className="text-2xl font-bold mb-8 text-center">WHOIS域名查询</h1>
+      <div className="flex flex-col items-center">
+        <DomainInput
+          value={domain}
+          onChange={setDomain}
+          onSubmit={handleWhoisLookup}
+          isLoading={isLoading}
+        />
+        <WhoisResult data={whoisData} error={error} />
       </div>
-      
-      <DomainInput
-        value={domain}
-        onChange={setDomain}
-        onSubmit={handleWhoisLookup}
-        isLoading={isLoading}
-      />
-      
-      <WhoisResult data={whoisData} error={error} />
     </div>
   );
 };
