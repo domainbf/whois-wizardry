@@ -24,7 +24,6 @@ const WhoisResult = ({ data, error }: WhoisResultProps) => {
     );
   }
 
-  // 如果有原始数据，显示原始数据
   if (data.rawData) {
     return (
       <Card className="w-full max-w-xl p-4 mt-4">
@@ -48,44 +47,32 @@ const WhoisResult = ({ data, error }: WhoisResultProps) => {
         <TableBody>
           {data.domainName && (
             <TableRow>
-              <TableCell className="font-medium">域名</TableCell>
+              <TableCell>域名</TableCell>
               <TableCell>{data.domainName}</TableCell>
             </TableRow>
           )}
           {data.registrar && (
             <TableRow>
-              <TableCell className="font-medium">注册商</TableCell>
+              <TableCell>注册商</TableCell>
               <TableCell>{data.registrar}</TableCell>
             </TableRow>
           )}
           {data.creationDate && (
             <TableRow>
-              <TableCell className="font-medium">创建日期</TableCell>
+              <TableCell>创建时间</TableCell>
               <TableCell>{new Date(data.creationDate).toLocaleString()}</TableCell>
             </TableRow>
           )}
           {data.expirationDate && (
             <TableRow>
-              <TableCell className="font-medium">过期日期</TableCell>
+              <TableCell>过期时间</TableCell>
               <TableCell>{new Date(data.expirationDate).toLocaleString()}</TableCell>
-            </TableRow>
-          )}
-          {data.updatedDate && (
-            <TableRow>
-              <TableCell className="font-medium">更新日期</TableCell>
-              <TableCell>{new Date(data.updatedDate).toLocaleString()}</TableCell>
             </TableRow>
           )}
           {data.nameServers && (
             <TableRow>
-              <TableCell className="font-medium">域名服务器</TableCell>
+              <TableCell>域名服务器</TableCell>
               <TableCell>{Array.isArray(data.nameServers) ? data.nameServers.join(', ') : data.nameServers}</TableCell>
-            </TableRow>
-          )}
-          {data.status && (
-            <TableRow>
-              <TableCell className="font-medium">状态</TableCell>
-              <TableCell>{Array.isArray(data.status) ? data.status.join(', ') : data.status}</TableCell>
             </TableRow>
           )}
         </TableBody>
