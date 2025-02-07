@@ -1,10 +1,56 @@
-// 在文件开头添加接口定义
+import net from 'net';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+
 interface WhoisQuery {
   domain: string;
   server: string;
 }
 
-// 添加查询函数
+const parseWhoIsData = (rawData: string) => {
+  const result: any = {};
+  
+  // 提取域名
+  const domainMatch = rawData.match(/Domain Name: *(.+)/i);
+  if (domainMatch) result.domainName = domainMatch[1].trim();
+  
+  // 提取注册商
+  const registrarMatch = rawData.match(/Registrar: *(.+)/i);
+  if (registrarMatch) result.registrar = registrarMatch[1].trim();
+  
+  // 提取创建日期
+  const creationMatch = rawData.match(/Creation Date: *(.+)/i);
+  if (creationMatch) {
+    const date = new Date(creationMatch[1].trim());
+    if (!isNaN(date.getTime())) {
+      result.creationDate = date.toISOString();
+    }
+  }
+  
+  // 提取过期日期
+  const expirationMatch = rawData.match(/Registry Expiry Date: *(.+)/i);
+  if (expirationMatch) {
+    const date = new Date(expirationMatch[1].trim());
+    if (!isNaN(date.getTime())) {
+      result.expirationDate = date.toISOString();
+    }
+  }
+  
+  // 提取域名服务器
+  const nameServers: string[] = [];
+  const nsMatches = rawData.matchAll(/Name Server: *(.+)/ig);
+  for (const match of nsMatches) {
+    if (match[1]) nameServers.push(match[1].trim());
+  }
+  if (nameServers.length > 0) result.nameServers = nameServers;
+
+  // 如果没有提取到任何信息，抛出错误
+  if (Object.keys(result).length === 0) {
+    throw new Error('无法解析WHOIS数据');
+  }
+
+  return result;
+};
+
 const queryWhois = async ({ domain, server }: WhoisQuery): Promise<string> => {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(43, server);
@@ -47,7 +93,6 @@ const queryWhois = async ({ domain, server }: WhoisQuery): Promise<string> => {
   });
 };
 
-// 添加数据清理函数
 const cleanWhoisData = (rawData: string): string => {
   return rawData
     .replace(/\r\n/g, '\n')
@@ -56,7 +101,6 @@ const cleanWhoisData = (rawData: string): string => {
     .trim();
 };
 
-// 修改现有的 handler 函数
 const handler = async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: '仅支持GET请求' });
@@ -93,3 +137,5 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
     });
   }
 };
+
+export default handler;
