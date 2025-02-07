@@ -9,43 +9,58 @@ interface WhoisQuery {
 const parseWhoIsData = (rawData: string) => {
   const result: any = {};
   
-  // 提取域名
-  const domainMatch = rawData.match(/Domain Name: *(.+)/i);
-  if (domainMatch) result.domainName = domainMatch[1].trim();
+  // 提取域名 - 增加多种匹配模式
+  const domainMatch = rawData.match(/Domain Name: *(.+)|domain name: *(.+)/i);
+  if (domainMatch) result.domainName = (domainMatch[1] || domainMatch[2]).trim();
   
-  // 提取注册商
-  const registrarMatch = rawData.match(/Registrar: *(.+)/i);
-  if (registrarMatch) result.registrar = registrarMatch[1].trim();
+  // 提取注册商 - 增加多种匹配模式
+  const registrarMatch = rawData.match(/Registrar: *(.+)|Sponsoring Registrar: *(.+)/i);
+  if (registrarMatch) result.registrar = (registrarMatch[1] || registrarMatch[2]).trim();
   
-  // 提取创建日期
-  const creationMatch = rawData.match(/Creation Date: *(.+)/i);
+  // 提取创建日期 - 增加多种匹配模式
+  const creationMatch = rawData.match(/Creation Date: *(.+)|Created On: *(.+)|Registration Time: *(.+)/i);
   if (creationMatch) {
-    const date = new Date(creationMatch[1].trim());
-    if (!isNaN(date.getTime())) {
-      result.creationDate = date.toISOString();
+    const dateStr = (creationMatch[1] || creationMatch[2] || creationMatch[3]).trim();
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        result.creationDate = date.toISOString();
+      }
+    } catch (e) {
+      console.error('日期解析错误:', e);
     }
   }
   
-  // 提取过期日期
-  const expirationMatch = rawData.match(/Registry Expiry Date: *(.+)/i);
+  // 提取过期日期 - 增加多种匹配模式
+  const expirationMatch = rawData.match(/Registry Expiry Date: *(.+)|Expiration Date: *(.+)|Expiration Time: *(.+)/i);
   if (expirationMatch) {
-    const date = new Date(expirationMatch[1].trim());
-    if (!isNaN(date.getTime())) {
-      result.expirationDate = date.toISOString();
+    const dateStr = (expirationMatch[1] || expirationMatch[2] || expirationMatch[3]).trim();
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        result.expirationDate = date.toISOString();
+      }
+    } catch (e) {
+      console.error('日期解析错误:', e);
     }
   }
   
-  // 提取域名服务器
+  // 提取域名服务器 - 增加多种匹配模式
   const nameServers: string[] = [];
-  const nsMatches = rawData.matchAll(/Name Server: *(.+)/ig);
-  for (const match of nsMatches) {
-    if (match[1]) nameServers.push(match[1].trim());
+  const nsMatches = rawData.matchAll(/Name Server: *(.+)|Nameserver: *(.+)/ig);
+  for (const match of Array.from(nsMatches)) {
+    if (match[1] || match[2]) {
+      nameServers.push((match[1] || match[2]).trim().toLowerCase());
+    }
   }
   if (nameServers.length > 0) result.nameServers = nameServers;
 
-  // 如果没有提取到任何信息，抛出错误
+  // 如果没有提取到任何信息，返回原始数据
   if (Object.keys(result).length === 0) {
-    throw new Error('无法解析WHOIS数据');
+    return {
+      rawData: rawData,
+      error: '无法解析WHOIS数据，显示原始信息'
+    };
   }
 
   return result;
@@ -64,7 +79,12 @@ const queryWhois = async ({ domain, server }: WhoisQuery): Promise<string> => {
     }, 15000);
 
     socket.on('connect', () => {
-      socket.write(`${domain}\r\n`, 'utf8');
+      // 修改查询格式，添加特定前缀
+      if (server.includes('verisign-grs.com')) {
+        socket.write(`domain ${domain}\r\n`, 'utf8');
+      } else {
+        socket.write(`${domain}\r\n`, 'utf8');
+      }
     });
 
     socket.on('data', (data) => {
@@ -120,16 +140,12 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
       return res.status(500).json({ error: '未获取到有效数据' });
     }
 
-    try {
-      const parsedData = await parseWhoIsData(cleanedData);
+    const parsedData = await parseWhoIsData(cleanedData);
+    // 如果返回的是原始数据，使用200状态码返回
+    if (parsedData.rawData) {
       return res.status(200).json(parsedData);
-    } catch (parseError) {
-      console.error('解析错误:', parseError);
-      return res.status(200).json({
-        rawData: cleanedData,
-        error: '解析WHOIS数据失败，显示原始信息'
-      });
     }
+    return res.status(200).json(parsedData);
   } catch (error) {
     console.error('查询错误:', error);
     return res.status(500).json({ 
