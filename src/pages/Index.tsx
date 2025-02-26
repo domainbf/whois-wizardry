@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import DomainInput from "@/components/DomainInput";
 import WhoisResult from "@/components/WhoisResult";
@@ -58,14 +59,21 @@ const Index = () => {
     setWhoisData(null);
 
     try {
-      const response = await fetch(`/api/whois?domain=${trimmedDomain}&server=${whoisServer}`);
+      const response = await fetch(`/api/whois?domain=${encodeURIComponent(trimmedDomain)}&server=${encodeURIComponent(whoisServer)}`);
       const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.error || '查询失败');
       }
       
-      setWhoisData(data);
+      if (data.error) {
+        setError(data.error);
+        if (data.rawData) {
+          setWhoisData({ rawData: data.rawData });
+        }
+      } else {
+        setWhoisData(data);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "查询失败，请稍后重试");
     } finally {

@@ -2,182 +2,168 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import net from 'net';
 
-interface WhoisQuery {
-  domain: string;
-  server: string;
-}
-
-interface ParsedWhoisData {
-  domainName?: string;
-  registrar?: string;
-  creationDate?: string;
-  expirationDate?: string;
-  updatedDate?: string;
-  nameServers?: string[];
-  status?: string[];
-}
-
-const parseWhoIsData = (rawData: string): ParsedWhoisData => {
-  const result: ParsedWhoisData = {};
-  
-  // Domain Name
-  const domainMatch = rawData.match(/Domain Name: *(.+)|Domain name: *(.+)|domain name: *(.+)/i);
-  if (domainMatch) result.domainName = (domainMatch[1] || domainMatch[2] || domainMatch[3]).trim();
-  
-  // Registrar
-  const registrarMatch = rawData.match(/Registrar: *(.+)|Sponsoring Registrar: *(.+)|Registrar Name: *(.+)/i);
-  if (registrarMatch) result.registrar = (registrarMatch[1] || registrarMatch[2] || registrarMatch[3]).trim();
-  
-  // Creation Date
-  const creationMatch = rawData.match(/Creation Date: *(.+)|Created On: *(.+)|Registration Time: *(.+)|Created Date: *(.+)/i);
-  if (creationMatch) {
-    const dateStr = (creationMatch[1] || creationMatch[2] || creationMatch[3] || creationMatch[4]).trim();
-    try {
-      const date = new Date(dateStr);
-      if (!isNaN(date.getTime())) {
-        result.creationDate = date.toISOString();
-      }
-    } catch (e) {
-      console.error('Date parsing error:', e);
-    }
-  }
-  
-  // Expiration Date
-  const expirationMatch = rawData.match(/Registry Expiry Date: *(.+)|Expiration Date: *(.+)|Expiration Time: *(.+)|Expiry Date: *(.+)/i);
-  if (expirationMatch) {
-    const dateStr = (expirationMatch[1] || expirationMatch[2] || expirationMatch[3] || expirationMatch[4]).trim();
-    try {
-      const date = new Date(dateStr);
-      if (!isNaN(date.getTime())) {
-        result.expirationDate = date.toISOString();
-      }
-    } catch (e) {
-      console.error('Date parsing error:', e);
-    }
-  }
-  
-  // Name Servers
-  const nameServers: string[] = [];
-  const nsMatches = rawData.matchAll(/Name Server: *(.+)|Nameserver: *(.+)|DNS: *(.+)/ig);
-  for (const match of Array.from(nsMatches)) {
-    if (match[1] || match[2] || match[3]) {
-      nameServers.push((match[1] || match[2] || match[3]).trim().toLowerCase());
-    }
-  }
-  if (nameServers.length > 0) result.nameServers = nameServers;
-
-  // Status
-  const statusList: string[] = [];
-  const statusMatches = rawData.matchAll(/Status: *(.+)|Domain Status: *(.+)/ig);
-  for (const match of Array.from(statusMatches)) {
-    if (match[1]) {
-      statusList.push(match[1].trim());
-    }
-  }
-  if (statusList.length > 0) result.status = statusList;
-
-  return result;
-};
-
-const queryWhois = async ({ domain, server }: WhoisQuery): Promise<string> => {
+const queryWhois = async (domain: string, server: string): Promise<string> => {
   return new Promise((resolve, reject) => {
-    console.log(`连接到 ${server} 查询域名 ${domain}`);
     const socket = net.createConnection(43, server);
-    let response = '';
+    let data = '';
 
-    socket.setTimeout(15000);
-
-    const timeout = setTimeout(() => {
-      socket.destroy();
-      reject(new Error('查询超时'));
-    }, 15000);
+    socket.setTimeout(10000);
 
     socket.on('connect', () => {
-      console.log('已连接到 WHOIS 服务器');
-      // Verisign 服务器需要特殊的查询格式
-      if (server.includes('verisign-grs.com')) {
-        socket.write(`domain ${domain}\r\n`);
-      } else {
-        socket.write(`${domain}\r\n`);
-      }
+      // 针对 Verisign 服务器的特殊处理
+      const query = server.includes('verisign-grs.com') 
+        ? `domain ${domain}\r\n`
+        : `${domain}\r\n`;
+      socket.write(query);
     });
 
-    socket.on('data', (data) => {
-      console.log('收到 WHOIS 服务器响应');
-      response += data.toString('utf8');
+    socket.on('data', (chunk) => {
+      data += chunk.toString();
     });
 
     socket.on('end', () => {
-      clearTimeout(timeout);
-      if (!response) {
-        reject(new Error('未收到响应'));
+      if (data.trim()) {
+        resolve(data);
       } else {
-        resolve(response);
+        reject(new Error('No data received'));
       }
-    });
-
-    socket.on('error', (err) => {
-      clearTimeout(timeout);
-      reject(new Error(`连接错误: ${err.message}`));
     });
 
     socket.on('timeout', () => {
       socket.destroy();
-      clearTimeout(timeout);
-      reject(new Error('连接超时'));
+      reject(new Error('Connection timeout'));
+    });
+
+    socket.on('error', (err) => {
+      reject(err);
     });
   });
 };
 
-const cleanWhoisData = (rawData: string): string => {
-  return rawData
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .replace(/\s+$/, '')
-    .trim();
+const extractValue = (data: string, patterns: RegExp[]): string | null => {
+  for (const pattern of patterns) {
+    const match = data.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
 };
 
-const handler = async (req: VercelRequest, res: VercelResponse) => {
-  console.log('收到请求:', req.query);
+const parseWhois = (data: string) => {
+  const parsed: Record<string, any> = {};
+
+  // 提取域名
+  const domainName = extractValue(data, [
+    /Domain Name:\s*(.+)/i,
+    /domain:\s*(.+)/i
+  ]);
+  if (domainName) parsed.domainName = domainName;
+
+  // 提取注册商
+  const registrar = extractValue(data, [
+    /Registrar:\s*(.+)/i,
+    /Sponsoring Registrar:\s*(.+)/i
+  ]);
+  if (registrar) parsed.registrar = registrar;
+
+  // 提取创建日期
+  const creationDate = extractValue(data, [
+    /Creation Date:\s*(.+)/i,
+    /Created On:\s*(.+)/i,
+    /Registration Time:\s*(.+)/i
+  ]);
+  if (creationDate) {
+    try {
+      parsed.creationDate = new Date(creationDate).toISOString();
+    } catch (e) {
+      console.error('Invalid creation date:', creationDate);
+    }
+  }
+
+  // 提取过期日期
+  const expirationDate = extractValue(data, [
+    /Registry Expiry Date:\s*(.+)/i,
+    /Expiration Date:\s*(.+)/i,
+    /Registrar Registration Expiration Date:\s*(.+)/i
+  ]);
+  if (expirationDate) {
+    try {
+      parsed.expirationDate = new Date(expirationDate).toISOString();
+    } catch (e) {
+      console.error('Invalid expiration date:', expirationDate);
+    }
+  }
+
+  // 提取域名服务器
+  const nameServers: string[] = [];
+  const nsRegex = /Name Server:\s*(.+)/ig;
+  let nsMatch;
+  while ((nsMatch = nsRegex.exec(data)) !== null) {
+    if (nsMatch[1]) {
+      nameServers.push(nsMatch[1].trim().toLowerCase());
+    }
+  }
+  if (nameServers.length > 0) {
+    parsed.nameServers = nameServers;
+  }
+
+  return parsed;
+};
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  // 允许跨域请求
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
 
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: '仅支持 GET 请求' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   const { domain, server } = req.query;
 
   if (!domain || typeof domain !== 'string' || !server || typeof server !== 'string') {
-    return res.status(400).json({ error: '无效的参数' });
+    res.status(400).json({ error: 'Invalid parameters' });
+    return;
   }
 
   try {
-    const rawData = await queryWhois({ domain, server });
-    console.log('原始 WHOIS 数据:', rawData);
+    console.log(`Querying WHOIS for ${domain} using server ${server}`);
+    const whoisData = await queryWhois(domain, server);
     
-    const cleanedData = cleanWhoisData(rawData);
-    console.log('清理后的 WHOIS 数据:', cleanedData);
-    
-    if (!cleanedData) {
-      return res.status(500).json({ error: '未收到有效数据' });
-    }
-
-    const parsedData = parseWhoIsData(cleanedData);
-    console.log('解析后的 WHOIS 数据:', parsedData);
-    
-    if (Object.keys(parsedData).length === 0) {
-      return res.status(200).json({
-        rawData: cleanedData,
-        error: '无法解析 WHOIS 数据，显示原始数据'
+    try {
+      const parsedData = parseWhois(whoisData);
+      
+      // 如果成功解析数据
+      if (Object.keys(parsedData).length > 0) {
+        res.status(200).json(parsedData);
+      } else {
+        // 如果没有解析出数据，返回原始数据
+        res.status(200).json({
+          rawData: whoisData,
+          error: '无法解析WHOIS数据，显示原始响应'
+        });
+      }
+    } catch (parseError) {
+      // 解析错误时返回原始数据
+      res.status(200).json({
+        rawData: whoisData,
+        error: '数据解析失败，显示原始响应'
       });
     }
-
-    return res.status(200).json(parsedData);
   } catch (error) {
-    console.error('查询错误:', error);
-    return res.status(500).json({ 
+    console.error('WHOIS query error:', error);
+    res.status(500).json({
       error: error instanceof Error ? error.message : '查询失败'
     });
   }
-};
-
-export default handler;
+}
