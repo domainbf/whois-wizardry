@@ -4,16 +4,35 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Search, ExternalLink, Loader2 } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import whoisServers from "@/data/whois.json";
+
+// 支持的顶级域名及其WHOIS服务器
+const WHOIS_SERVERS = {
+  "com": "whois.verisign-grs.com",
+  "net": "whois.verisign-grs.com",
+  "org": "whois.pir.org",
+  "io": "whois.nic.io",
+  "co": "whois.nic.co",
+  "ai": "whois.nic.ai",
+  "app": "whois.nic.google",
+  "dev": "whois.nic.google",
+  "xyz": "whois.nic.xyz",
+  "me": "whois.nic.me",
+  "info": "whois.afilias.net",
+  "biz": "whois.biz",
+  "cn": "whois.cnnic.cn",
+  "jp": "whois.jprs.jp",
+  "uk": "whois.nic.uk",
+  "ru": "whois.tcinet.ru",
+  "de": "whois.denic.de",
+  "fr": "whois.nic.fr"
+};
 
 const Index = () => {
   const [domain, setDomain] = useState("");
@@ -26,20 +45,17 @@ const Index = () => {
     setDomain(e.target.value);
   };
 
-  // 极宽松的域名验证 - 允许更多合法域名格式
+  // 简单域名验证
   const validateDomain = (domain: string) => {
-    // 确保域名有基本结构：任何字符，至少有一个点，不以点开头或结尾
-    return /^[^\s.]+(\.[^\s.]+)+$/.test(domain) && !domain.startsWith(".") && !domain.endsWith(".");
+    return /^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z0-9-_.]+$/.test(domain);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 清理域名：移除http://或https://前缀，只保留域名部分
+    // 清理域名：移除前缀和路径
     let cleanDomain = domain.trim().toLowerCase();
     cleanDomain = cleanDomain.replace(/^(https?:\/\/)?(www\.)?/i, "");
-    
-    // 确保没有路径或查询参数
     cleanDomain = cleanDomain.split('/')[0].split('?')[0].split('#')[0];
     
     if (!cleanDomain) {
@@ -59,44 +75,35 @@ const Index = () => {
       });
       return;
     }
+
+    // 获取顶级域名
+    const tld = cleanDomain.split('.').pop()?.toLowerCase();
     
+    if (!tld || !WHOIS_SERVERS[tld as keyof typeof WHOIS_SERVERS]) {
+      toast({
+        title: "不支持的域名",
+        description: `当前不支持 .${tld} 后缀的域名查询`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
     
     try {
-      console.log("查询域名:", cleanDomain);
+      console.log(`查询域名: ${cleanDomain}`);
       
-      // 获取域名后缀
-      const tld = cleanDomain.split('.').pop()?.toLowerCase();
-      
-      // 检查是否支持该TLD
-      if (!tld || !(tld in whoisServers)) {
-        throw new Error(`不支持的域名后缀: .${tld}`);
-      }
-      
-      const whoisServer = whoisServers[tld as keyof typeof whoisServers];
-      
-      const response = await fetch(`/api/whois?domain=${encodeURIComponent(cleanDomain)}&server=${encodeURIComponent(whoisServer)}`);
+      // 使用直接服务器端查询，而不是通过本地API
+      const response = await fetch(`https://domain-checker-service.vercel.app/api/whois?domain=${encodeURIComponent(cleanDomain)}`);
       
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          throw new Error(`查询失败 (HTTP ${response.status})`);
-        }
-        throw new Error(errorData.error || `查询失败 (HTTP ${response.status})`);
+        throw new Error(`查询失败 (HTTP ${response.status})`);
       }
       
-      let data;
-      try {
-        data = await response.json();
-        console.log("查询结果:", data);
-      } catch (e) {
-        console.error("解析响应JSON失败:", e);
-        throw new Error("解析响应数据失败，服务器返回了无效的数据格式");
-      }
+      const data = await response.json();
+      console.log("查询结果:", data);
       
       if (data.error) {
         setError(data.error);
@@ -105,9 +112,23 @@ const Index = () => {
           description: data.error,
           variant: "destructive",
         });
+      } else {
+        // 处理数据
+        const formattedData = {
+          domain: cleanDomain,
+          data: {
+            registrar: data.registrar || "未知",
+            creationDate: data.createdDate || data.creationDate,
+            expirationDate: data.expiryDate || data.expirationDate,
+            updatedDate: data.updatedDate,
+            status: data.status,
+            nameServers: data.nameServers || []
+          },
+          rawData: data.rawData || ""
+        };
+        
+        setResult(formattedData);
       }
-      
-      setResult(data);
     } catch (err) {
       console.error("WHOIS查询错误:", err);
       const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
@@ -133,10 +154,7 @@ const Index = () => {
       return date.toLocaleString('zh-CN', {
         year: 'numeric',
         month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+        day: '2-digit'
       });
     } catch (e) {
       return dateString;
@@ -170,7 +188,7 @@ const Index = () => {
             </Button>
           </form>
           <div className="mt-2 text-xs text-muted-foreground">
-            支持格式: example.com, sub.example.co.uk, example.org 等多种域名
+            支持的域名后缀: .com .net .org .io .co .ai .app .dev .xyz .me 等
           </div>
         </Card>
 
@@ -198,10 +216,6 @@ const Index = () => {
                     <TableCell className="font-medium">域名</TableCell>
                     <TableCell>{result.domain}</TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">WHOIS服务器</TableCell>
-                    <TableCell>{result.whoisServer}</TableCell>
-                  </TableRow>
                   {result.data?.registrar && (
                     <TableRow>
                       <TableCell className="font-medium">注册商</TableCell>
@@ -210,7 +224,7 @@ const Index = () => {
                   )}
                   {result.data?.creationDate && (
                     <TableRow>
-                      <TableCell className="font-medium">创建时间</TableCell>
+                      <TableCell className="font-medium">注册时间</TableCell>
                       <TableCell>{formatDate(result.data.creationDate)}</TableCell>
                     </TableRow>
                   )}
@@ -254,67 +268,14 @@ const Index = () => {
               </Card>
             )}
 
-            {(result.data?.registrant || result.data?.admin || result.data?.tech) && (
+            {result.rawData && (
               <Card className="p-6">
-                <h2 className="text-xl font-bold mb-4">联系人信息</h2>
-                <div className="space-y-4">
-                  {result.data.registrant && (
-                    <div>
-                      <h3 className="font-bold mb-2">注册人</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(result.data.registrant).map(([key, value]) => (
-                            <TableRow key={key}>
-                              <TableCell className="font-medium">{key}</TableCell>
-                              <TableCell>{value as string}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                  
-                  {result.data.admin && (
-                    <div>
-                      <h3 className="font-bold mb-2">管理员联系人</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(result.data.admin).map(([key, value]) => (
-                            <TableRow key={key}>
-                              <TableCell className="font-medium">{key}</TableCell>
-                              <TableCell>{value as string}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                  
-                  {result.data.tech && (
-                    <div>
-                      <h3 className="font-bold mb-2">技术联系人</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(result.data.tech).map(([key, value]) => (
-                            <TableRow key={key}>
-                              <TableCell className="font-medium">{key}</TableCell>
-                              <TableCell>{value as string}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </div>
+                <h2 className="text-xl font-bold mb-4">原始WHOIS数据</h2>
+                <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-xs font-mono overflow-auto max-h-96">
+                  {result.rawData}
+                </pre>
               </Card>
             )}
-
-            <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4">原始WHOIS数据</h2>
-              <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-xs font-mono overflow-auto max-h-96">
-                {result.rawData || "无原始数据"}
-              </pre>
-            </Card>
           </div>
         )}
       </div>
