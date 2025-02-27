@@ -25,25 +25,10 @@ const Index = () => {
     setDomain(e.target.value);
   };
 
-  // 更宽松和更准确的域名验证
+  // 优化的域名验证 - 更加宽容但仍然精确
   const validateDomain = (domain: string) => {
-    // 检查基本格式：允许字母、数字、连字符，且包含至少一个点
-    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$/.test(domain)) {
-      return false;
-    }
-
-    // 确保没有连续的点
-    if (domain.includes("..")) {
-      return false;
-    }
-
-    // 确保顶级域名(TLD)部分是合法的
-    const tld = domain.split('.').pop()?.toLowerCase();
-    if (!tld || tld.length < 2) {
-      return false; 
-    }
-
-    return true;
+    // 简单验证：确保有字母或数字，至少有一个点，并且以有效字符结尾
+    return /^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z0-9-_.]+[a-zA-Z0-9]$/.test(domain);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -54,7 +39,7 @@ const Index = () => {
     cleanDomain = cleanDomain.replace(/^(https?:\/\/)?(www\.)?/i, "");
     
     // 确保没有路径或查询参数
-    cleanDomain = cleanDomain.split('/')[0].split('?')[0];
+    cleanDomain = cleanDomain.split('/')[0].split('?')[0].split('#')[0];
     
     if (!cleanDomain) {
       toast({
@@ -162,7 +147,7 @@ const Index = () => {
             </Button>
           </form>
           <div className="mt-2 text-xs text-muted-foreground">
-            支持格式: example.com, sub.example.co.uk, www.example.org
+            支持格式: example.com, sub.example.co.uk, example.org
           </div>
         </Card>
 

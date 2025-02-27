@@ -144,7 +144,7 @@ function queryWhois(domain, server) {
   });
 }
 
-// 扩展WHOIS服务器列表
+// WHOIS服务器列表
 function getWhoisServer(tld) {
   const whoisServers = {
     'com': 'whois.verisign-grs.com',
@@ -214,7 +214,7 @@ function getWhoisServer(tld) {
   return whoisServers[tld] || null;
 }
 
-// 改进的WHOIS数据解析函数
+// WHOIS数据解析函数
 function parseWhoisData(rawData, domainName) {
   const result = {
     // 核心信息
@@ -294,7 +294,7 @@ function parseWhoisData(rawData, domainName) {
   );
 }
 
-// 改进提取单个值的函数，增加更多日志记录
+// 提取单个值的函数
 function extractValue(data, patterns) {
   for (const pattern of patterns) {
     try {
@@ -309,7 +309,7 @@ function extractValue(data, patterns) {
   return null;
 }
 
-// 改进提取多个值的函数
+// 提取多个值的函数
 function extractMultipleValues(data, patterns) {
   const values = [];
   
@@ -319,7 +319,7 @@ function extractMultipleValues(data, patterns) {
       try {
         matches = Array.from(data.matchAll(pattern));
       } catch (e) {
-        // 如果浏览器不支持matchAll (例如旧版Edge)，使用传统方法
+        // 如果环境不支持matchAll，使用传统方法
         matches = [];
         let match;
         while ((match = pattern.exec(data)) !== null) {
@@ -345,7 +345,7 @@ function extractMultipleValues(data, patterns) {
   return values.length > 0 ? values : null;
 }
 
-// 改进联系人信息提取函数
+// 联系人信息提取函数
 function extractContact(data, type) {
   const contact = {};
   
@@ -376,7 +376,7 @@ function extractContact(data, type) {
   return Object.keys(contact).length > 0 ? contact : null;
 }
 
-// 改进日期格式化函数
+// 日期格式化函数
 function formatDate(dateStr) {
   if (!dateStr) return null;
   
