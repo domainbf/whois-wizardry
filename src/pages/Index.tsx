@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import whoisServers from "@/data/whois.json";
 
 const Index = () => {
   const [domain, setDomain] = useState("");
@@ -25,10 +26,10 @@ const Index = () => {
     setDomain(e.target.value);
   };
 
-  // 优化的域名验证 - 更加宽容但仍然精确
+  // 极宽松的域名验证 - 允许更多合法域名格式
   const validateDomain = (domain: string) => {
-    // 简单验证：确保有字母或数字，至少有一个点，并且以有效字符结尾
-    return /^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z0-9-_.]+[a-zA-Z0-9]$/.test(domain);
+    // 确保域名有基本结构：任何字符，至少有一个点，不以点开头或结尾
+    return /^[^\s.]+(\.[^\s.]+)+$/.test(domain) && !domain.startsWith(".") && !domain.endsWith(".");
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -65,15 +66,37 @@ const Index = () => {
     
     try {
       console.log("查询域名:", cleanDomain);
-      const response = await fetch(`/api/whois?domain=${encodeURIComponent(cleanDomain)}`);
+      
+      // 获取域名后缀
+      const tld = cleanDomain.split('.').pop()?.toLowerCase();
+      
+      // 检查是否支持该TLD
+      if (!tld || !(tld in whoisServers)) {
+        throw new Error(`不支持的域名后缀: .${tld}`);
+      }
+      
+      const whoisServer = whoisServers[tld as keyof typeof whoisServers];
+      
+      const response = await fetch(`/api/whois?domain=${encodeURIComponent(cleanDomain)}&server=${encodeURIComponent(whoisServer)}`);
       
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          throw new Error(`查询失败 (HTTP ${response.status})`);
+        }
         throw new Error(errorData.error || `查询失败 (HTTP ${response.status})`);
       }
       
-      const data = await response.json();
-      console.log("查询结果:", data);
+      let data;
+      try {
+        data = await response.json();
+        console.log("查询结果:", data);
+      } catch (e) {
+        console.error("解析响应JSON失败:", e);
+        throw new Error("解析响应数据失败，服务器返回了无效的数据格式");
+      }
       
       if (data.error) {
         setError(data.error);
@@ -147,7 +170,7 @@ const Index = () => {
             </Button>
           </form>
           <div className="mt-2 text-xs text-muted-foreground">
-            支持格式: example.com, sub.example.co.uk, example.org
+            支持格式: example.com, sub.example.co.uk, example.org 等多种域名
           </div>
         </Card>
 
@@ -241,6 +264,38 @@ const Index = () => {
                       <Table>
                         <TableBody>
                           {Object.entries(result.data.registrant).map(([key, value]) => (
+                            <TableRow key={key}>
+                              <TableCell className="font-medium">{key}</TableCell>
+                              <TableCell>{value as string}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  
+                  {result.data.admin && (
+                    <div>
+                      <h3 className="font-bold mb-2">管理员联系人</h3>
+                      <Table>
+                        <TableBody>
+                          {Object.entries(result.data.admin).map(([key, value]) => (
+                            <TableRow key={key}>
+                              <TableCell className="font-medium">{key}</TableCell>
+                              <TableCell>{value as string}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  
+                  {result.data.tech && (
+                    <div>
+                      <h3 className="font-bold mb-2">技术联系人</h3>
+                      <Table>
+                        <TableBody>
+                          {Object.entries(result.data.tech).map(([key, value]) => (
                             <TableRow key={key}>
                               <TableCell className="font-medium">{key}</TableCell>
                               <TableCell>{value as string}</TableCell>
