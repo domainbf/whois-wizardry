@@ -25,17 +25,38 @@ const Index = () => {
     setDomain(e.target.value);
   };
 
+  // 更宽松和更准确的域名验证
   const validateDomain = (domain: string) => {
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
-    return domainRegex.test(domain);
+    // 检查基本格式：允许字母、数字、连字符，且包含至少一个点
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$/.test(domain)) {
+      return false;
+    }
+
+    // 确保没有连续的点
+    if (domain.includes("..")) {
+      return false;
+    }
+
+    // 确保顶级域名(TLD)部分是合法的
+    const tld = domain.split('.').pop()?.toLowerCase();
+    if (!tld || tld.length < 2) {
+      return false; 
+    }
+
+    return true;
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const trimmedDomain = domain.trim().toLowerCase();
+    // 清理域名：移除http://或https://前缀，只保留域名部分
+    let cleanDomain = domain.trim().toLowerCase();
+    cleanDomain = cleanDomain.replace(/^(https?:\/\/)?(www\.)?/i, "");
     
-    if (!trimmedDomain) {
+    // 确保没有路径或查询参数
+    cleanDomain = cleanDomain.split('/')[0].split('?')[0];
+    
+    if (!cleanDomain) {
       toast({
         title: "错误",
         description: "请输入域名",
@@ -44,7 +65,7 @@ const Index = () => {
       return;
     }
     
-    if (!validateDomain(trimmedDomain)) {
+    if (!validateDomain(cleanDomain)) {
       toast({
         title: "格式错误",
         description: "请输入有效的域名格式 (例如: example.com)",
@@ -58,19 +79,34 @@ const Index = () => {
     setResult(null);
     
     try {
-      const response = await fetch(`/api/whois?domain=${encodeURIComponent(trimmedDomain)}`);
-      const data = await response.json();
+      console.log("查询域名:", cleanDomain);
+      const response = await fetch(`/api/whois?domain=${encodeURIComponent(cleanDomain)}`);
       
       if (!response.ok) {
-        throw new Error(data.error || "查询失败");
+        const errorData = await response.json();
+        throw new Error(errorData.error || `查询失败 (HTTP ${response.status})`);
+      }
+      
+      const data = await response.json();
+      console.log("查询结果:", data);
+      
+      if (data.error) {
+        setError(data.error);
+        toast({
+          title: "查询出现问题",
+          description: data.error,
+          variant: "destructive",
+        });
       }
       
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "查询失败，请稍后重试");
+      console.error("WHOIS查询错误:", err);
+      const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
+      setError(errorMessage);
       toast({
         title: "查询失败",
-        description: err instanceof Error ? err.message : "查询失败，请稍后重试",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -83,7 +119,17 @@ const Index = () => {
     
     try {
       const date = new Date(dateString);
-      return date.toLocaleString();
+      if (isNaN(date.getTime())) {
+        return dateString; // 如果无法解析为日期，返回原始字符串
+      }
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
     } catch (e) {
       return dateString;
     }
@@ -98,7 +144,7 @@ const Index = () => {
         </p>
         
         <Card className="p-6 mb-8">
-          <form onSubmit={handleSearch} className="flex gap-2">
+          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-2">
             <Input
               type="text"
               placeholder="输入域名 (例如: example.com)"
@@ -106,7 +152,7 @@ const Index = () => {
               onChange={handleDomainChange}
               className="flex-1 font-mono"
             />
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="whitespace-nowrap">
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : (
@@ -115,15 +161,26 @@ const Index = () => {
               查询
             </Button>
           </form>
+          <div className="mt-2 text-xs text-muted-foreground">
+            支持格式: example.com, sub.example.co.uk, www.example.org
+          </div>
         </Card>
 
-        {error && (
+        {loading && (
+          <Card className="p-6 mb-8 flex justify-center items-center">
+            <Loader2 className="h-8 w-8 animate-spin mr-2" />
+            <p>正在查询WHOIS服务器，请稍候...</p>
+          </Card>
+        )}
+
+        {error && !loading && (
           <Card className="p-6 mb-8 border-destructive">
+            <h2 className="text-xl font-bold mb-2 text-destructive">查询失败</h2>
             <p className="text-destructive">{error}</p>
           </Card>
         )}
 
-        {result && (
+        {result && !loading && (
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-bold mb-4">域名信息</h2>
@@ -137,31 +194,31 @@ const Index = () => {
                     <TableCell className="font-medium">WHOIS服务器</TableCell>
                     <TableCell>{result.whoisServer}</TableCell>
                   </TableRow>
-                  {result.data.registrar && (
+                  {result.data?.registrar && (
                     <TableRow>
                       <TableCell className="font-medium">注册商</TableCell>
                       <TableCell>{result.data.registrar}</TableCell>
                     </TableRow>
                   )}
-                  {result.data.creationDate && (
+                  {result.data?.creationDate && (
                     <TableRow>
                       <TableCell className="font-medium">创建时间</TableCell>
                       <TableCell>{formatDate(result.data.creationDate)}</TableCell>
                     </TableRow>
                   )}
-                  {result.data.expirationDate && (
+                  {result.data?.expirationDate && (
                     <TableRow>
                       <TableCell className="font-medium">到期时间</TableCell>
                       <TableCell>{formatDate(result.data.expirationDate)}</TableCell>
                     </TableRow>
                   )}
-                  {result.data.updatedDate && (
+                  {result.data?.updatedDate && (
                     <TableRow>
                       <TableCell className="font-medium">更新时间</TableCell>
                       <TableCell>{formatDate(result.data.updatedDate)}</TableCell>
                     </TableRow>
                   )}
-                  {result.data.status && (
+                  {result.data?.status && (
                     <TableRow>
                       <TableCell className="font-medium">状态</TableCell>
                       <TableCell>
@@ -175,7 +232,7 @@ const Index = () => {
               </Table>
             </Card>
 
-            {result.data.nameServers && (
+            {result.data?.nameServers && result.data.nameServers.length > 0 && (
               <Card className="p-6">
                 <h2 className="text-xl font-bold mb-4">域名服务器</h2>
                 <ul className="list-disc pl-6 space-y-1">
@@ -189,7 +246,7 @@ const Index = () => {
               </Card>
             )}
 
-            {(result.data.registrant || result.data.admin || result.data.tech) && (
+            {(result.data?.registrant || result.data?.admin || result.data?.tech) && (
               <Card className="p-6">
                 <h2 className="text-xl font-bold mb-4">联系人信息</h2>
                 <div className="space-y-4">
@@ -215,7 +272,7 @@ const Index = () => {
             <Card className="p-6">
               <h2 className="text-xl font-bold mb-4">原始WHOIS数据</h2>
               <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-xs font-mono overflow-auto max-h-96">
-                {result.rawData}
+                {result.rawData || "无原始数据"}
               </pre>
             </Card>
           </div>
