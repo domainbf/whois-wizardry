@@ -14,7 +14,8 @@ import {
 import { 
   DOMAIN_WHOIS_SERVERS, 
   isIPAddress, 
-  getIPWhoisServer 
+  getIPWhoisServer,
+  getDomainWhoisServer
 } from "@/data/whoisServers";
 
 const Index = () => {
@@ -38,6 +39,10 @@ const Index = () => {
   };
 
   const validateDomain = (domain: string) => {
+    // 确保域名格式正确，并且不能是whois服务器本身
+    if (domain.startsWith('whois.')) {
+      return false;
+    }
     return /^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z0-9-_.]+$/.test(domain);
   };
 
@@ -63,7 +68,7 @@ const Index = () => {
       if (!validateDomain(cleanQuery)) {
         toast({
           title: "格式错误",
-          description: "请输入有效的域名格式 (例如: example.com)",
+          description: "请输入有效的域名格式 (例如: example.com)，不要输入WHOIS服务器地址",
           variant: "destructive",
         });
         return;
@@ -99,18 +104,29 @@ const Index = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
       
+      // 构建API URL，使用查询参数
       let url = `https://domain-checker-service.vercel.app/api/whois?`;
       
       // Add the query parameter
       url += `query=${encodeURIComponent(cleanQuery)}`;
       
-      // If it's an IP, we might need a specific whois server
-      if (queryType === "ip") {
+      // 添加明确的服务器参数，确保使用正确的WHOIS服务器
+      if (queryType === "domain") {
+        const tld = cleanQuery.split('.').pop()?.toLowerCase();
+        if (tld) {
+          const whoisServer = DOMAIN_WHOIS_SERVERS[tld];
+          if (whoisServer) {
+            url += `&server=${encodeURIComponent(whoisServer)}`;
+          }
+        }
+      } else if (queryType === "ip") {
         const ipServer = getIPWhoisServer(cleanQuery);
         if (ipServer) {
           url += `&server=${encodeURIComponent(ipServer)}`;
         }
       }
+      
+      console.log("正在请求:", url);
       
       const response = await fetch(
         url,
@@ -194,9 +210,24 @@ const Index = () => {
       setError(errorMessage);
       toast({
         title: "查询失败",
-        description: errorMessage,
+        description: errorMessage + "。您可以尝试直接访问官方WHOIS查询网站。",
         variant: "destructive",
       });
+      
+      // 在API失败的情况下，提供直接访问官方WHOIS的备选方案
+      if (queryType === "domain") {
+        const tld = cleanQuery.split('.').pop()?.toLowerCase();
+        if (tld) {
+          console.log(`建议用户访问官方WHOIS查询网站查询 ${cleanQuery}`);
+          // 这里可以提供一个备选方案的UI显示
+          setResult({
+            domain: cleanQuery,
+            type: "domain",
+            fallback: true,
+            officialLink: getDomainWhoisServer(cleanQuery)
+          });
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -417,6 +448,43 @@ const Index = () => {
               <div>
                 <h2 className="text-xl font-bold mb-2 text-destructive">查询失败</h2>
                 <p className="text-destructive">{error}</p>
+                {result?.fallback && (
+                  <div className="mt-3">
+                    <p className="text-sm mb-2">您可以尝试通过以下方式查询:</p>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li>
+                        <a 
+                          href={`https://${result.officialLink}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          访问官方WHOIS服务器
+                        </a>
+                      </li>
+                      <li>
+                        <a 
+                          href={`https://who.is/whois/${result.domain}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          访问 who.is 查询
+                        </a>
+                      </li>
+                      <li>
+                        <a 
+                          href={`https://lookup.icann.org/lookup?q=${result.domain}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          访问 ICANN Lookup
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                )}
                 <p className="text-sm mt-2 text-muted-foreground">
                   提示: 请确保输入格式正确，并且网络连接稳定。如果问题持续存在，可能是WHOIS服务器暂时不可用。
                 </p>
@@ -425,7 +493,7 @@ const Index = () => {
           </Card>
         )}
 
-        {result && !loading && (
+        {result && !loading && !result.fallback && (
           result.type === "domain" ? renderDomainInfo() : renderIPInfo()
         )}
       </div>

@@ -349,6 +349,7 @@ export function getDomainWhoisServer(domain: string): string | null {
   const tld = domain.split('.').pop()?.toLowerCase();
   if (!tld) return null;
   
+  // 返回完整的WHOIS服务器地址，可以直接供用户访问
   return DOMAIN_WHOIS_SERVERS[tld] || null;
 }
 
