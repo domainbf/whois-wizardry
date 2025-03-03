@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, AlertTriangle } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -12,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-// 支持的顶级域名及其WHOIS服务器
 const WHOIS_SERVERS = {
   "com": "whois.verisign-grs.com",
   "net": "whois.verisign-grs.com",
@@ -45,7 +43,6 @@ const Index = () => {
     setDomain(e.target.value);
   };
 
-  // 简单域名验证
   const validateDomain = (domain: string) => {
     return /^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z0-9-_.]+$/.test(domain);
   };
@@ -53,7 +50,6 @@ const Index = () => {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 清理域名：移除前缀和路径
     let cleanDomain = domain.trim().toLowerCase();
     cleanDomain = cleanDomain.replace(/^(https?:\/\/)?(www\.)?/i, "");
     cleanDomain = cleanDomain.split('/')[0].split('?')[0].split('#')[0];
@@ -76,7 +72,6 @@ const Index = () => {
       return;
     }
 
-    // 获取顶级域名
     const tld = cleanDomain.split('.').pop()?.toLowerCase();
     
     if (!tld || !WHOIS_SERVERS[tld as keyof typeof WHOIS_SERVERS]) {
@@ -93,16 +88,39 @@ const Index = () => {
     setResult(null);
     
     try {
-      console.log(`查询域名: ${cleanDomain}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       
-      // 使用直接服务器端查询，而不是通过本地API
-      const response = await fetch(`https://domain-checker-service.vercel.app/api/whois?domain=${encodeURIComponent(cleanDomain)}`);
+      const response = await fetch(
+        `https://domain-checker-service.vercel.app/api/whois?domain=${encodeURIComponent(cleanDomain)}`,
+        { 
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      ).catch(error => {
+        console.error("Fetch error:", error);
+        throw new Error(error.message || "网络请求失败，请检查网络连接");
+      });
       
-      if (!response.ok) {
-        throw new Error(`查询失败 (HTTP ${response.status})`);
+      clearTimeout(timeoutId);
+      
+      if (!response || !response.ok) {
+        const status = response?.status || "未知";
+        const statusText = response?.statusText || "未知错误";
+        throw new Error(`查询失败 (HTTP ${status}: ${statusText})`);
       }
       
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error("JSON解析错误:", jsonError);
+        throw new Error("无法解析服务器响应，请稍后重试");
+      }
+      
       console.log("查询结果:", data);
       
       if (data.error) {
@@ -113,7 +131,6 @@ const Index = () => {
           variant: "destructive",
         });
       } else {
-        // 处理数据
         const formattedData = {
           domain: cleanDomain,
           data: {
@@ -131,7 +148,10 @@ const Index = () => {
       }
     } catch (err) {
       console.error("WHOIS查询错误:", err);
-      const errorMessage = err instanceof Error ? err.message : "查询失败，请稍后重试";
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : "查询失败，请稍后重试";
+      
       setError(errorMessage);
       toast({
         title: "查询失败",
@@ -149,7 +169,7 @@ const Index = () => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
-        return dateString; // 如果无法解析为日期，返回原始字符串
+        return dateString;
       }
       return date.toLocaleString('zh-CN', {
         year: 'numeric',
@@ -201,8 +221,16 @@ const Index = () => {
 
         {error && !loading && (
           <Card className="p-6 mb-8 border-destructive">
-            <h2 className="text-xl font-bold mb-2 text-destructive">查询失败</h2>
-            <p className="text-destructive">{error}</p>
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+              <div>
+                <h2 className="text-xl font-bold mb-2 text-destructive">查询失败</h2>
+                <p className="text-destructive">{error}</p>
+                <p className="text-sm mt-2 text-muted-foreground">
+                  提示: 请确保域名格式正确，并且网络连接稳定。如果问题持续存在，可能是WHOIS服务器暂时不可用。
+                </p>
+              </div>
+            </div>
           </Card>
         )}
 
