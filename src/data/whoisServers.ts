@@ -37,6 +37,7 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "io": "whois.nic.io",
   "dev": "whois.nic.google",
   "ai": "whois.nic.ai",
+  "app": "whois.nic.google",
   
   // More generic TLDs
   "academy": "whois.nic.academy",

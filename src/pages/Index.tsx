@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -104,27 +103,11 @@ const Index = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
       
-      // 构建API URL，使用查询参数
-      let url = `https://domain-checker-service.vercel.app/api/whois?`;
+      // 使用本地API路由而不是直接调用第三方服务
+      let url = `/api/whois?query=${encodeURIComponent(cleanQuery)}`;
       
-      // Add the query parameter
-      url += `query=${encodeURIComponent(cleanQuery)}`;
-      
-      // 添加明确的服务器参数，确保使用正确的WHOIS服务器
-      if (queryType === "domain") {
-        const tld = cleanQuery.split('.').pop()?.toLowerCase();
-        if (tld) {
-          const whoisServer = DOMAIN_WHOIS_SERVERS[tld];
-          if (whoisServer) {
-            url += `&server=${encodeURIComponent(whoisServer)}`;
-          }
-        }
-      } else if (queryType === "ip") {
-        const ipServer = getIPWhoisServer(cleanQuery);
-        if (ipServer) {
-          url += `&server=${encodeURIComponent(ipServer)}`;
-        }
-      }
+      // 添加查询类型参数
+      url += `&type=${queryType}`;
       
       console.log("正在请求:", url);
       
@@ -174,13 +157,13 @@ const Index = () => {
             type: "domain",
             data: {
               registrar: data.registrar || "未知",
-              creationDate: data.createdDate || data.creationDate,
-              expirationDate: data.expiryDate || data.expirationDate,
+              creationDate: data.creationDate || data.createdDate,
+              expirationDate: data.expirationDate || data.expiryDate,
               updatedDate: data.updatedDate,
-              status: data.status,
+              status: data.status || data.domainStatus,
               nameServers: data.nameServers || []
             },
-            rawData: data.rawData || ""
+            rawData: data.rawData || data.raw || ""
           };
           setResult(formattedData);
         } else {
@@ -196,7 +179,7 @@ const Index = () => {
               created: data.created || data.creationDate,
               updated: data.updated || data.updatedDate,
             },
-            rawData: data.rawData || ""
+            rawData: data.rawData || data.raw || ""
           };
           setResult(formattedData);
         }
@@ -452,16 +435,18 @@ const Index = () => {
                   <div className="mt-3">
                     <p className="text-sm mb-2">您可以尝试通过以下方式查询:</p>
                     <ul className="list-disc pl-6 space-y-1">
-                      <li>
-                        <a 
-                          href={`https://${result.officialLink}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
-                        >
-                          访问官方WHOIS服务器
-                        </a>
-                      </li>
+                      {result.officialLink && (
+                        <li>
+                          <a 
+                            href={`http://${result.officialLink}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            访问官方WHOIS服务器
+                          </a>
+                        </li>
+                      )}
                       <li>
                         <a 
                           href={`https://who.is/whois/${result.domain}`} 
