@@ -1,3 +1,4 @@
+
 // Regional Internet Registries (RIRs) for IP addresses
 export const IP_WHOIS_SERVERS = {
   // Default server for IP lookups
@@ -228,7 +229,6 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "il": "whois.isoc.org.il",
   "im": "whois.nic.im",
   "in": "whois.registry.in",
-  "io": "whois.nic.io",
   "iq": "whois.nic.iq",
   "ir": "whois.nic.ir",
   "is": "whois.isnic.is",
