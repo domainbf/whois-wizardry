@@ -1,4 +1,3 @@
-
 // Regional Internet Registries (RIRs) for IP addresses
 export const IP_WHOIS_SERVERS = {
   // Default server for IP lookups
@@ -35,7 +34,6 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "me": "whois.nic.me",
   "co": "whois.nic.co",
   "io": "whois.nic.io",
-  "app": "whois.nic.google",
   "dev": "whois.nic.google",
   "ai": "whois.nic.ai",
   
@@ -45,7 +43,6 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "actor": "whois.nic.actor",
   "agency": "whois.nic.agency",
   "apartments": "whois.nic.apartments",
-  "app": "whois.nic.google",
   "art": "whois.nic.art",
   "associates": "whois.nic.associates",
   "attorney": "whois.nic.attorney",
@@ -108,7 +105,6 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "dental": "whois.nic.dental",
   "dentist": "whois.nic.dentist",
   "design": "whois.nic.design",
-  "dev": "whois.nic.google",
   "diamonds": "whois.nic.diamonds",
   "digital": "whois.nic.digital",
   "direct": "whois.nic.direct",
@@ -168,7 +164,6 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "ae": "whois.aeda.net.ae",
   "af": "whois.nic.af",
   "ag": "whois.nic.ag",
-  "ai": "whois.nic.ai",
   "al": "whois.ripe.net",
   "am": "whois.amnic.net",
   "as": "whois.nic.as",
@@ -184,14 +179,12 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "bz": "whois.afilias-grs.info",
   "ca": "whois.cira.ca",
   "cat": "whois.nic.cat",
-  "cc": "ccwhois.verisign-grs.com",
   "cd": "whois.nic.cd",
   "ch": "whois.nic.ch",
   "ci": "whois.nic.ci",
   "ck": "whois.nic.ck",
   "cl": "whois.nic.cl",
   "cn": "whois.cnnic.cn",
-  "co": "whois.nic.co",
   "cr": "whois.nic.cr",
   "cx": "whois.nic.cx",
   "cy": "whois.nic.cy",
@@ -257,7 +250,6 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "ly": "whois.nic.ly",
   "ma": "whois.registre.ma",
   "md": "whois.nic.md",
-  "me": "whois.nic.me",
   "mg": "whois.nic.mg",
   "mil": "whois.nic.mil",
   "mk": "whois.marnet.mk",
@@ -326,7 +318,6 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "to": "whois.tonic.to",
   "tr": "whois.nic.tr",
   "travel": "whois.nic.travel",
-  "tv": "whois.nic.tv",
   "tw": "whois.twnic.net.tw",
   "tz": "whois.tznic.or.tz",
   "ua": "whois.ua",
