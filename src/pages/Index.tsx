@@ -29,7 +29,6 @@ const Index = () => {
     const value = e.target.value;
     setQuery(value);
     
-    // Auto-detect if the query is an IP address or domain
     if (isIPAddress(value)) {
       setQueryType("ip");
     } else {
@@ -38,7 +37,6 @@ const Index = () => {
   };
 
   const validateDomain = (domain: string) => {
-    // 确保域名格式正确，并且不能是whois服务器本身
     if (domain.startsWith('whois.')) {
       return false;
     }
@@ -51,7 +49,6 @@ const Index = () => {
     let cleanQuery = query.trim().toLowerCase();
     
     if (queryType === "domain") {
-      // Clean domain query
       cleanQuery = cleanQuery.replace(/^(https?:\/\/)?(www\.)?/i, "");
       cleanQuery = cleanQuery.split('/')[0].split('?')[0].split('#')[0];
       
@@ -84,7 +81,6 @@ const Index = () => {
         return;
       }
     } else {
-      // IP validation is already done by isIPAddress function
       if (!isIPAddress(cleanQuery)) {
         toast({
           title: "格式错误",
@@ -101,15 +97,23 @@ const Index = () => {
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
-      // 使用本地API路由而不是直接调用第三方服务
       let url = `/api/whois?query=${encodeURIComponent(cleanQuery)}`;
       
-      // 添加查询类型参数
       url += `&type=${queryType}`;
       
-      console.log("正在请求:", url);
+      if (queryType === "domain") {
+        const tld = cleanQuery.split('.').pop()?.toLowerCase();
+        if (tld && DOMAIN_WHOIS_SERVERS[tld]) {
+          url += `&server=${encodeURIComponent(DOMAIN_WHOIS_SERVERS[tld])}`;
+        }
+      } else if (queryType === "ip") {
+        const server = getIPWhoisServer(cleanQuery);
+        url += `&server=${encodeURIComponent(server)}`;
+      }
+      
+      console.log("Sending WHOIS request:", url);
       
       const response = await fetch(
         url,
@@ -134,14 +138,27 @@ const Index = () => {
       }
       
       let data;
+      let text;
+      
       try {
-        data = await response.json();
-      } catch (jsonError) {
-        console.error("JSON解析错误:", jsonError);
-        throw new Error("无法解析服务器响应，请稍后重试");
+        text = await response.text();
+        console.log("Raw response:", text);
+        
+        try {
+          data = JSON.parse(text);
+        } catch (jsonError) {
+          console.error("JSON parse error:", jsonError);
+          data = {
+            rawData: text,
+            error: null
+          };
+        }
+      } catch (responseError) {
+        console.error("Response processing error:", responseError);
+        throw new Error("无法处理服务器响应，请稍后重试");
       }
       
-      console.log("查询结果:", data);
+      console.log("Processed data:", data);
       
       if (data.error) {
         setError(data.error);
@@ -156,18 +173,17 @@ const Index = () => {
             domain: cleanQuery,
             type: "domain",
             data: {
-              registrar: data.registrar || "未知",
-              creationDate: data.creationDate || data.createdDate,
-              expirationDate: data.expirationDate || data.expiryDate,
-              updatedDate: data.updatedDate,
-              status: data.status || data.domainStatus,
-              nameServers: data.nameServers || []
+              registrar: data.registrar || data.registrarName || "未知",
+              creationDate: data.creationDate || data.createdDate || data.created || "未知",
+              expirationDate: data.expirationDate || data.expiryDate || data.expires || "未知",
+              updatedDate: data.updatedDate || data.updated || "未知",
+              status: data.status || data.domainStatus || "未知",
+              nameServers: data.nameServers || data.nameServer || []
             },
-            rawData: data.rawData || data.raw || ""
+            rawData: data.rawData || data.raw || text || ""
           };
           setResult(formattedData);
         } else {
-          // Handle IP address response
           const formattedData = {
             ip: cleanQuery,
             type: "ip",
@@ -176,10 +192,10 @@ const Index = () => {
               organization: data.organization || data.orgName || "未知",
               country: data.country || "未知",
               cidr: data.cidr || "未知",
-              created: data.created || data.creationDate,
-              updated: data.updated || data.updatedDate,
+              created: data.created || data.creationDate || "未知",
+              updated: data.updated || data.updatedDate || "未知",
             },
-            rawData: data.rawData || data.raw || ""
+            rawData: data.rawData || data.raw || text || ""
           };
           setResult(formattedData);
         }
@@ -197,17 +213,16 @@ const Index = () => {
         variant: "destructive",
       });
       
-      // 在API失败的情况下，提供直接访问官方WHOIS的备选方案
       if (queryType === "domain") {
         const tld = cleanQuery.split('.').pop()?.toLowerCase();
         if (tld) {
+          const whoisServer = DOMAIN_WHOIS_SERVERS[tld];
           console.log(`建议用户访问官方WHOIS查询网站查询 ${cleanQuery}`);
-          // 这里可以提供一个备选方案的UI显示
           setResult({
             domain: cleanQuery,
             type: "domain",
             fallback: true,
-            officialLink: getDomainWhoisServer(cleanQuery)
+            officialLink: whoisServer || null,
           });
         }
       }
