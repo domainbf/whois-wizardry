@@ -70,7 +70,8 @@ const Index = () => {
       /Registration Date:\s*(.+?)[\r\n]/i,
       /Domain Registration Date:\s*(.+?)[\r\n]/i,
       /Created:\s*(.+?)[\r\n]/i,
-      /Domain Create Date:\s*(.+?)[\r\n]/i
+      /Domain Create Date:\s*(.+?)[\r\n]/i,
+      /Registration Time:\s*(.+?)[\r\n]/i
     ];
     
     for (const pattern of creationPatterns) {
@@ -166,6 +167,27 @@ const Index = () => {
             return parts.length > 1 ? parts[1].trim().toLowerCase() : '';
           }).filter(ns => ns.length > 0);
         }
+      }
+    }
+    
+    if (!data.registrar) {
+      const cnRegistrarMatch = rawData.match(/注册商:\s*(.+?)[\r\n]/i);
+      if (cnRegistrarMatch && cnRegistrarMatch[1]) {
+        data.registrar = cnRegistrarMatch[1].trim();
+      }
+    }
+    
+    if (!data.creationDate) {
+      const cnCreationMatch = rawData.match(/注册日期:\s*(.+?)[\r\n]/i);
+      if (cnCreationMatch && cnCreationMatch[1]) {
+        data.creationDate = cnCreationMatch[1].trim();
+      }
+    }
+    
+    if (!data.expirationDate) {
+      const cnExpirationMatch = rawData.match(/到期日期:\s*(.+?)[\r\n]/i);
+      if (cnExpirationMatch && cnExpirationMatch[1]) {
+        data.expirationDate = cnExpirationMatch[1].trim();
       }
     }
     
@@ -293,7 +315,7 @@ const Index = () => {
         if (queryType === "domain") {
           let formattedData;
           
-          if (!data.registrar && !data.creationDate) {
+          if (data.rawData || (!data.registrar && !data.creationDate)) {
             const rawData = data.rawData || data.raw || text;
             const extractedData = extractWhoisData(rawData);
             
