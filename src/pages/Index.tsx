@@ -48,80 +48,60 @@ const Index = () => {
     
     const data: Record<string, any> = {};
     
-    const registrarPatterns = [
-      /Registrar:\s*(.+?)[\r\n]/i,
-      /Registrar Name:\s*(.+?)[\r\n]/i,
-      /Sponsoring Registrar:\s*(.+?)[\r\n]/i,
-      /Registration Service Provider:\s*(.+?)[\r\n]/i
-    ];
+    // Patterns for registrar matching
+    const registrarMatches = rawData.match(/Registrar:\s*(.+?)[\r\n]/i) || 
+                            rawData.match(/Registrar Name:\s*(.+?)[\r\n]/i) ||
+                            rawData.match(/Sponsoring Registrar:\s*(.+?)[\r\n]/i) ||
+                            rawData.match(/Registration Service Provider:\s*(.+?)[\r\n]/i) ||
+                            rawData.match(/注册商:\s*(.+?)[\r\n]/i);
     
-    for (const pattern of registrarPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.registrar = match[1].trim();
-        break;
-      }
+    if (registrarMatches && registrarMatches[1] && registrarMatches[1].trim()) {
+      data.registrar = registrarMatches[1].trim();
     }
     
-    const creationPatterns = [
-      /Creation Date:\s*(.+?)[\r\n]/i,
-      /Created On:\s*(.+?)[\r\n]/i,
-      /Created Date:\s*(.+?)[\r\n]/i,
-      /Registration Date:\s*(.+?)[\r\n]/i,
-      /Domain Registration Date:\s*(.+?)[\r\n]/i,
-      /Created:\s*(.+?)[\r\n]/i,
-      /Domain Create Date:\s*(.+?)[\r\n]/i,
-      /Registration Time:\s*(.+?)[\r\n]/i
-    ];
+    // Patterns for creation date matching
+    const creationMatches = rawData.match(/Creation Date:\s*(.+?)[\r\n]/i) || 
+                           rawData.match(/Created On:\s*(.+?)[\r\n]/i) ||
+                           rawData.match(/Created Date:\s*(.+?)[\r\n]/i) ||
+                           rawData.match(/Registration Date:\s*(.+?)[\r\n]/i) ||
+                           rawData.match(/Domain Registration Date:\s*(.+?)[\r\n]/i) ||
+                           rawData.match(/Created:\s*(.+?)[\r\n]/i) ||
+                           rawData.match(/Domain Create Date:\s*(.+?)[\r\n]/i) ||
+                           rawData.match(/Registration Time:\s*(.+?)[\r\n]/i) ||
+                           rawData.match(/注册日期:\s*(.+?)[\r\n]/i);
     
-    for (const pattern of creationPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.creationDate = match[1].trim();
-        break;
-      }
+    if (creationMatches && creationMatches[1] && creationMatches[1].trim()) {
+      data.creationDate = creationMatches[1].trim();
     }
     
-    const expirationPatterns = [
-      /Expiration Date:\s*(.+?)[\r\n]/i,
-      /Registry Expiry Date:\s*(.+?)[\r\n]/i,
-      /Expiry Date:\s*(.+?)[\r\n]/i,
-      /Registrar Registration Expiration Date:\s*(.+?)[\r\n]/i,
-      /Domain Expiration Date:\s*(.+?)[\r\n]/i,
-      /Expires On:\s*(.+?)[\r\n]/i,
-      /Expires:\s*(.+?)[\r\n]/i,
-      /Expiry:\s*(.+?)[\r\n]/i
-    ];
+    // Patterns for expiration date matching
+    const expirationMatches = rawData.match(/Expiration Date:\s*(.+?)[\r\n]/i) || 
+                             rawData.match(/Registry Expiry Date:\s*(.+?)[\r\n]/i) ||
+                             rawData.match(/Expiry Date:\s*(.+?)[\r\n]/i) ||
+                             rawData.match(/Registrar Registration Expiration Date:\s*(.+?)[\r\n]/i) ||
+                             rawData.match(/Domain Expiration Date:\s*(.+?)[\r\n]/i) ||
+                             rawData.match(/Expires On:\s*(.+?)[\r\n]/i) ||
+                             rawData.match(/Expires:\s*(.+?)[\r\n]/i) ||
+                             rawData.match(/Expiry:\s*(.+?)[\r\n]/i) ||
+                             rawData.match(/到期日期:\s*(.+?)[\r\n]/i);
     
-    for (const pattern of expirationPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.expirationDate = match[1].trim();
-        break;
-      }
+    if (expirationMatches && expirationMatches[1] && expirationMatches[1].trim()) {
+      data.expirationDate = expirationMatches[1].trim();
     }
     
-    const updatedPatterns = [
-      /Updated Date:\s*(.+?)[\r\n]/i,
-      /Last Updated On:\s*(.+?)[\r\n]/i,
-      /Last Modified:\s*(.+?)[\r\n]/i,
-      /Last Update:\s*(.+?)[\r\n]/i,
-      /Updated:\s*(.+?)[\r\n]/i
-    ];
+    // Patterns for updated date matching
+    const updatedMatches = rawData.match(/Updated Date:\s*(.+?)[\r\n]/i) || 
+                          rawData.match(/Last Updated On:\s*(.+?)[\r\n]/i) ||
+                          rawData.match(/Last Modified:\s*(.+?)[\r\n]/i) ||
+                          rawData.match(/Last Update:\s*(.+?)[\r\n]/i) ||
+                          rawData.match(/Updated:\s*(.+?)[\r\n]/i) ||
+                          rawData.match(/更新日期:\s*(.+?)[\r\n]/i);
     
-    for (const pattern of updatedPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.updatedDate = match[1].trim();
-        break;
-      }
+    if (updatedMatches && updatedMatches[1] && updatedMatches[1].trim()) {
+      data.updatedDate = updatedMatches[1].trim();
     }
     
-    const statusPatterns = [
-      /Domain Status:\s*(.+?)[\r\n]/i,
-      /Status:\s*(.+?)[\r\n]/i
-    ];
-    
+    // Extract status
     const statusMatches = rawData.match(/Domain Status:\s*(.+?)[\r\n]/ig);
     if (statusMatches) {
       data.status = statusMatches.map(m => {
@@ -129,47 +109,38 @@ const Index = () => {
         return statusValue.split(' ')[0]; // Often status has comments after it
       });
     } else {
-      for (const pattern of statusPatterns) {
-        const match = rawData.match(pattern);
-        if (match && match[1] && match[1].trim()) {
-          data.status = match[1].trim().split(' ')[0];
-          break;
-        }
+      const statusMatch = rawData.match(/Status:\s*(.+?)[\r\n]/i);
+      if (statusMatch && statusMatch[1] && statusMatch[1].trim()) {
+        data.status = statusMatch[1].trim().split(' ')[0];
       }
     }
     
-    const nameServerPatterns = [
-      /Name Server:\s*(.+?)[\r\n]/i,
-      /nserver:\s*(.+?)[\r\n]/i
-    ];
+    // Extract name servers
+    const nameServerMatches = rawData.match(/Name Server:\s*(.+?)[\r\n]/ig) || 
+                              rawData.match(/nserver:\s*(.+?)[\r\n]/ig);
     
-    const nameServerMatches = rawData.match(/Name Server:\s*(.+?)[\r\n]/ig);
     if (nameServerMatches) {
       data.nameServers = nameServerMatches.map(m => 
-        m.replace(/Name Server:\s*/i, '').trim().toLowerCase()
+        m.replace(/Name Server:\s*/i, '').replace(/nserver:\s*/i, '').trim().toLowerCase()
       );
     } else {
-      const nsPattern = /nserver:\s*(.+?)[\r\n]/ig;
-      const nsMatches = [...rawData.matchAll(nsPattern)];
-      if (nsMatches.length > 0) {
-        data.nameServers = nsMatches.map(m => m[1].trim().toLowerCase());
-      } else {
-        const lines = rawData.split('\n');
-        const nsLines = lines.filter(line => 
-          line.toLowerCase().includes('name server') || 
-          line.toLowerCase().includes('nameserver') ||
-          line.toLowerCase().includes('nserver')
-        );
-        
-        if (nsLines.length > 0) {
-          data.nameServers = nsLines.map(line => {
-            const parts = line.split(':');
-            return parts.length > 1 ? parts[1].trim().toLowerCase() : '';
-          }).filter(ns => ns.length > 0);
-        }
+      // Try a different approach for name servers
+      const lines = rawData.split('\n');
+      const nsLines = lines.filter(line => 
+        line.toLowerCase().includes('name server') || 
+        line.toLowerCase().includes('nameserver') ||
+        line.toLowerCase().includes('nserver')
+      );
+      
+      if (nsLines.length > 0) {
+        data.nameServers = nsLines.map(line => {
+          const parts = line.split(':');
+          return parts.length > 1 ? parts[1].trim().toLowerCase() : '';
+        }).filter(ns => ns.length > 0);
       }
     }
     
+    // For Chinese domains
     if (!data.registrar) {
       const cnRegistrarMatch = rawData.match(/注册商:\s*(.+?)[\r\n]/i);
       if (cnRegistrarMatch && cnRegistrarMatch[1]) {
@@ -188,6 +159,14 @@ const Index = () => {
       const cnExpirationMatch = rawData.match(/到期日期:\s*(.+?)[\r\n]/i);
       if (cnExpirationMatch && cnExpirationMatch[1]) {
         data.expirationDate = cnExpirationMatch[1].trim();
+      }
+    }
+    
+    // Additional patterns for .cn domains
+    if (!data.registrar) {
+      const altRegistrarMatch = rawData.match(/Sponsoring Registrar Organization:\s*(.+?)[\r\n]/i);
+      if (altRegistrarMatch && altRegistrarMatch[1]) {
+        data.registrar = altRegistrarMatch[1].trim();
       }
     }
     
