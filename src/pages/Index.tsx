@@ -43,6 +43,109 @@ const Index = () => {
     return /^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z0-9-_.]+$/.test(domain);
   };
 
+  const extractWhoisData = (rawData: string) => {
+    console.log("Extracting data from raw WHOIS response");
+    
+    const data: Record<string, any> = {};
+    
+    const registrarPatterns = [
+      /Registrar:\s*(.+?)[\r\n]/i,
+      /Registrar Name:\s*(.+?)[\r\n]/i,
+      /Sponsoring Registrar:\s*(.+?)[\r\n]/i,
+      /Registration Service Provider:\s*(.+?)[\r\n]/i
+    ];
+    
+    for (const pattern of registrarPatterns) {
+      const match = rawData.match(pattern);
+      if (match && match[1] && match[1].trim()) {
+        data.registrar = match[1].trim();
+        break;
+      }
+    }
+    
+    const creationPatterns = [
+      /Creation Date:\s*(.+?)[\r\n]/i,
+      /Created On:\s*(.+?)[\r\n]/i,
+      /Created Date:\s*(.+?)[\r\n]/i,
+      /Registration Date:\s*(.+?)[\r\n]/i,
+      /Domain Registration Date:\s*(.+?)[\r\n]/i,
+      /Created:\s*(.+?)[\r\n]/i,
+      /Domain Create Date:\s*(.+?)[\r\n]/i
+    ];
+    
+    for (const pattern of creationPatterns) {
+      const match = rawData.match(pattern);
+      if (match && match[1] && match[1].trim()) {
+        data.creationDate = match[1].trim();
+        break;
+      }
+    }
+    
+    const expirationPatterns = [
+      /Expiration Date:\s*(.+?)[\r\n]/i,
+      /Registry Expiry Date:\s*(.+?)[\r\n]/i,
+      /Expiry Date:\s*(.+?)[\r\n]/i,
+      /Registrar Registration Expiration Date:\s*(.+?)[\r\n]/i,
+      /Domain Expiration Date:\s*(.+?)[\r\n]/i,
+      /Expires On:\s*(.+?)[\r\n]/i,
+      /Expires:\s*(.+?)[\r\n]/i,
+      /Expiry:\s*(.+?)[\r\n]/i
+    ];
+    
+    for (const pattern of expirationPatterns) {
+      const match = rawData.match(pattern);
+      if (match && match[1] && match[1].trim()) {
+        data.expirationDate = match[1].trim();
+        break;
+      }
+    }
+    
+    const updatedPatterns = [
+      /Updated Date:\s*(.+?)[\r\n]/i,
+      /Last Updated On:\s*(.+?)[\r\n]/i,
+      /Last Modified:\s*(.+?)[\r\n]/i,
+      /Last Update:\s*(.+?)[\r\n]/i,
+      /Updated:\s*(.+?)[\r\n]/i
+    ];
+    
+    for (const pattern of updatedPatterns) {
+      const match = rawData.match(pattern);
+      if (match && match[1] && match[1].trim()) {
+        data.updatedDate = match[1].trim();
+        break;
+      }
+    }
+    
+    const statusMatches = rawData.match(/Domain Status:\s*(.+?)[\r\n]/ig);
+    if (statusMatches) {
+      data.status = statusMatches.map(m => {
+        const statusValue = m.replace(/Domain Status:\s*/i, '').trim();
+        return statusValue.split(' ')[0]; // Often status has comments after it
+      });
+    } else {
+      const statusMatch = rawData.match(/Status:\s*(.+?)[\r\n]/i);
+      if (statusMatch && statusMatch[1]) {
+        data.status = statusMatch[1].trim();
+      }
+    }
+    
+    const nameServerMatches = rawData.match(/Name Server:\s*(.+?)[\r\n]/ig);
+    if (nameServerMatches) {
+      data.nameServers = nameServerMatches.map(m => 
+        m.replace(/Name Server:\s*/i, '').trim().toLowerCase()
+      );
+    } else {
+      const nsPattern = /nserver:\s*(.+?)[\r\n]/ig;
+      const nsMatches = [...rawData.matchAll(nsPattern)];
+      if (nsMatches.length > 0) {
+        data.nameServers = nsMatches.map(m => m[1].trim().toLowerCase());
+      }
+    }
+    
+    console.log("Extracted WHOIS data:", data);
+    return data;
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -120,7 +223,7 @@ const Index = () => {
         { 
           signal: controller.signal,
           headers: {
-            'Accept': 'application/json',
+            'Accept': 'application/json, text/plain, */*',
             'Cache-Control': 'no-cache'
           }
         }
@@ -137,25 +240,17 @@ const Index = () => {
         throw new Error(`查询失败 (HTTP ${status}: ${statusText})`);
       }
       
-      let data;
-      let text;
+      const text = await response.text();
+      console.log("Raw response:", text);
       
+      let data;
       try {
-        text = await response.text();
-        console.log("Raw response:", text);
-        
-        try {
-          data = JSON.parse(text);
-        } catch (jsonError) {
-          console.error("JSON parse error:", jsonError);
-          data = {
-            rawData: text,
-            error: null
-          };
-        }
-      } catch (responseError) {
-        console.error("Response processing error:", responseError);
-        throw new Error("无法处理服务器响应，请稍后重试");
+        data = JSON.parse(text);
+      } catch (jsonError) {
+        console.error("JSON parse error, trying to extract directly from text:", jsonError);
+        data = {
+          rawData: text
+        };
       }
       
       console.log("Processed data:", data);
@@ -169,19 +264,41 @@ const Index = () => {
         });
       } else {
         if (queryType === "domain") {
-          const formattedData = {
-            domain: cleanQuery,
-            type: "domain",
-            data: {
-              registrar: data.registrar || data.registrarName || "未知",
-              creationDate: data.creationDate || data.createdDate || data.created || "未知",
-              expirationDate: data.expirationDate || data.expiryDate || data.expires || "未知",
-              updatedDate: data.updatedDate || data.updated || "未知",
-              status: data.status || data.domainStatus || "未知",
-              nameServers: data.nameServers || data.nameServer || []
-            },
-            rawData: data.rawData || data.raw || text || ""
-          };
+          let formattedData;
+          
+          if (!data.registrar && !data.creationDate) {
+            const rawData = data.rawData || data.raw || text;
+            const extractedData = extractWhoisData(rawData);
+            
+            formattedData = {
+              domain: cleanQuery,
+              type: "domain",
+              data: {
+                registrar: extractedData.registrar || "未知",
+                creationDate: extractedData.creationDate || "未知",
+                expirationDate: extractedData.expirationDate || "未知",
+                updatedDate: extractedData.updatedDate || "未知",
+                status: extractedData.status || "未知",
+                nameServers: extractedData.nameServers || []
+              },
+              rawData: rawData
+            };
+          } else {
+            formattedData = {
+              domain: cleanQuery,
+              type: "domain",
+              data: {
+                registrar: data.registrar || data.registrarName || "未知",
+                creationDate: data.creationDate || data.createdDate || data.created || "未知",
+                expirationDate: data.expirationDate || data.expiryDate || data.expires || "未知",
+                updatedDate: data.updatedDate || data.updated || "未知",
+                status: data.status || data.domainStatus || "未知",
+                nameServers: data.nameServers || data.nameServer || []
+              },
+              rawData: data.rawData || data.raw || text || ""
+            };
+          }
+          
           setResult(formattedData);
         } else {
           const formattedData = {
