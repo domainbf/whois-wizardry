@@ -116,6 +116,11 @@ const Index = () => {
       }
     }
     
+    const statusPatterns = [
+      /Domain Status:\s*(.+?)[\r\n]/i,
+      /Status:\s*(.+?)[\r\n]/i
+    ];
+    
     const statusMatches = rawData.match(/Domain Status:\s*(.+?)[\r\n]/ig);
     if (statusMatches) {
       data.status = statusMatches.map(m => {
@@ -123,11 +128,19 @@ const Index = () => {
         return statusValue.split(' ')[0]; // Often status has comments after it
       });
     } else {
-      const statusMatch = rawData.match(/Status:\s*(.+?)[\r\n]/i);
-      if (statusMatch && statusMatch[1]) {
-        data.status = statusMatch[1].trim();
+      for (const pattern of statusPatterns) {
+        const match = rawData.match(pattern);
+        if (match && match[1] && match[1].trim()) {
+          data.status = match[1].trim().split(' ')[0];
+          break;
+        }
       }
     }
+    
+    const nameServerPatterns = [
+      /Name Server:\s*(.+?)[\r\n]/i,
+      /nserver:\s*(.+?)[\r\n]/i
+    ];
     
     const nameServerMatches = rawData.match(/Name Server:\s*(.+?)[\r\n]/ig);
     if (nameServerMatches) {
@@ -139,6 +152,20 @@ const Index = () => {
       const nsMatches = [...rawData.matchAll(nsPattern)];
       if (nsMatches.length > 0) {
         data.nameServers = nsMatches.map(m => m[1].trim().toLowerCase());
+      } else {
+        const lines = rawData.split('\n');
+        const nsLines = lines.filter(line => 
+          line.toLowerCase().includes('name server') || 
+          line.toLowerCase().includes('nameserver') ||
+          line.toLowerCase().includes('nserver')
+        );
+        
+        if (nsLines.length > 0) {
+          data.nameServers = nsLines.map(line => {
+            const parts = line.split(':');
+            return parts.length > 1 ? parts[1].trim().toLowerCase() : '';
+          }).filter(ns => ns.length > 0);
+        }
       }
     }
     
