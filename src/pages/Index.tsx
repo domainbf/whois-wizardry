@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -47,213 +46,308 @@ const Index = () => {
   const extractWhoisData = (rawData: string) => {
     console.log("Extracting data from raw WHOIS response:", rawData);
     
+    if (!rawData || typeof rawData !== 'string') {
+      console.error("Invalid WHOIS raw data:", rawData);
+      return {};
+    }
+    
     const data: Record<string, any> = {};
     
-    // Patterns for registrar matching
-    const registrarPatterns = [
-      /Registrar:\s*(.+?)(?:\r|\n|$)/i,
-      /Registrar Name:\s*(.+?)(?:\r|\n|$)/i,
-      /Sponsoring Registrar:\s*(.+?)(?:\r|\n|$)/i,
-      /Registration Service Provider:\s*(.+?)(?:\r|\n|$)/i,
-      /Sponsoring Registrar Organization:\s*(.+?)(?:\r|\n|$)/i,
-      /注册商:\s*(.+?)(?:\r|\n|$)/i,
-      /Registrant Name:\s*(.+?)(?:\r|\n|$)/i
-    ];
-    
-    for (const pattern of registrarPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.registrar = match[1].trim();
-        break;
-      }
+    // Check if this is an error response
+    if (rawData.includes("No match for domain") || 
+        rawData.includes("No match for") || 
+        rawData.includes("NOT FOUND") ||
+        rawData.includes("No Data Found") ||
+        rawData.includes("Domain not found")) {
+      data.error = "域名未注册或无法获取信息";
+      return data;
     }
     
-    // Patterns for creation date matching
-    const creationPatterns = [
-      /Creation Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Created On:\s*(.+?)(?:\r|\n|$)/i,
-      /Created Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Registration Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Domain Registration Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Created:\s*(.+?)(?:\r|\n|$)/i,
-      /Domain Create Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Registration Time:\s*(.+?)(?:\r|\n|$)/i,
-      /注册日期:\s*(.+?)(?:\r|\n|$)/i,
-      /Registered on:\s*(.+?)(?:\r|\n|$)/i
-    ];
+    // Normalize line endings and remove extra spaces
+    const normalizedData = rawData.replace(/\r\n/g, '\n').replace(/\n+/g, '\n');
     
-    for (const pattern of creationPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.creationDate = match[1].trim();
-        break;
+    // Handle Verisign (.com, .net) responses which have a specific format
+    if (rawData.includes('Whois Server Version 2.0') || 
+        rawData.includes('whois.verisign-grs.com')) {
+      console.log("Detected Verisign WHOIS format");
+      
+      // Extract the second WHOIS lookup for Verisign responses
+      const referralWhoisMatch = normalizedData.match(/Registrar WHOIS Server: (.+?)(?:\n|$)/i);
+      if (referralWhoisMatch && referralWhoisMatch[1]) {
+        data.registrarWhoisServer = referralWhoisMatch[1].trim();
+      }
+
+      // Try to extract domain information
+      const domainMatch = normalizedData.match(/Domain Name: (.+?)(?:\n|$)/i);
+      if (domainMatch && domainMatch[1]) {
+        data.domainName = domainMatch[1].trim();
+      }
+
+      // Extract registrar information
+      const registrarMatch = normalizedData.match(/Registrar: (.+?)(?:\n|$)/i);
+      if (registrarMatch && registrarMatch[1]) {
+        data.registrar = registrarMatch[1].trim();
+      }
+
+      // Extract dates
+      const createdMatch = normalizedData.match(/Creation Date: (.+?)(?:\n|$)/i);
+      if (createdMatch && createdMatch[1]) {
+        data.creationDate = createdMatch[1].trim();
+      }
+
+      const updatedMatch = normalizedData.match(/Updated Date: (.+?)(?:\n|$)/i);
+      if (updatedMatch && updatedMatch[1]) {
+        data.updatedDate = updatedMatch[1].trim();
+      }
+
+      const expiryMatch = normalizedData.match(/Registry Expiry Date: (.+?)(?:\n|$)/i) || 
+                          normalizedData.match(/Registrar Registration Expiration Date: (.+?)(?:\n|$)/i);
+      if (expiryMatch && expiryMatch[1]) {
+        data.expirationDate = expiryMatch[1].trim();
+      }
+
+      // Extract name servers (may be multiple)
+      const nameServers: string[] = [];
+      const nameServerRegex = /Name Server: (.+?)(?:\n|$)/gi;
+      let nsMatch;
+      while ((nsMatch = nameServerRegex.exec(normalizedData)) !== null) {
+        if (nsMatch[1] && nsMatch[1].trim()) {
+          nameServers.push(nsMatch[1].trim().toLowerCase());
+        }
+      }
+      if (nameServers.length > 0) {
+        data.nameServers = nameServers;
+      }
+      
+      // Extract domain status
+      const statusValues: string[] = [];
+      const statusRegex = /Domain Status: (.+?)(?:\n|$)/gi;
+      let statusMatch;
+      while ((statusMatch = statusRegex.exec(normalizedData)) !== null) {
+        if (statusMatch[1] && statusMatch[1].trim()) {
+          statusValues.push(statusMatch[1].trim());
+        }
+      }
+      if (statusValues.length > 0) {
+        data.status = statusValues;
+      }
+    } 
+    // For Chinese domains (.cn)
+    else if (normalizedData.includes('CNNIC WHOIS') || 
+             normalizedData.includes('域名信息') || 
+             normalizedData.includes('注册商')) {
+      console.log("Detected Chinese WHOIS format");
+      
+      // Try specific Chinese patterns
+      const cnRegistrarMatch = normalizedData.match(/注册商:[ \t]*(.+?)(?:\n|$)/i) || 
+                             normalizedData.match(/Registrar:[ \t]*(.+?)(?:\n|$)/i);
+      if (cnRegistrarMatch && cnRegistrarMatch[1]) {
+        data.registrar = cnRegistrarMatch[1].trim();
+      }
+      
+      const cnCreationMatch = normalizedData.match(/注册时间:[ \t]*(.+?)(?:\n|$)/i) || 
+                            normalizedData.match(/Registration Date:[ \t]*(.+?)(?:\n|$)/i) ||
+                            normalizedData.match(/注册日期:[ \t]*(.+?)(?:\n|$)/i);
+      if (cnCreationMatch && cnCreationMatch[1]) {
+        data.creationDate = cnCreationMatch[1].trim();
+      }
+      
+      const cnExpirationMatch = normalizedData.match(/过期时间:[ \t]*(.+?)(?:\n|$)/i) || 
+                              normalizedData.match(/Expiration Date:[ \t]*(.+?)(?:\n|$)/i) ||
+                              normalizedData.match(/到期日期:[ \t]*(.+?)(?:\n|$)/i);
+      if (cnExpirationMatch && cnExpirationMatch[1]) {
+        data.expirationDate = cnExpirationMatch[1].trim();
+      }
+      
+      // Extract name servers
+      const nameServers: string[] = [];
+      const nsRegex = /DNS服务器:[ \t]*(.+?)(?:\n|$)/gi;
+      let nsMatch;
+      while ((nsMatch = nsRegex.exec(normalizedData)) !== null) {
+        if (nsMatch[1] && nsMatch[1].trim()) {
+          nameServers.push(nsMatch[1].trim().toLowerCase());
+        }
+      }
+      if (nameServers.length === 0) {
+        // Try alternative pattern
+        const nsRegex2 = /Name Server:[ \t]*(.+?)(?:\n|$)/gi;
+        while ((nsMatch = nsRegex2.exec(normalizedData)) !== null) {
+          if (nsMatch[1] && nsMatch[1].trim()) {
+            nameServers.push(nsMatch[1].trim().toLowerCase());
+          }
+        }
+      }
+      if (nameServers.length > 0) {
+        data.nameServers = nameServers;
+      }
+      
+      // Extract status
+      const cnStatusMatch = normalizedData.match(/状态:[ \t]*(.+?)(?:\n|$)/i) ||
+                          normalizedData.match(/Domain Status:[ \t]*(.+?)(?:\n|$)/i);
+      if (cnStatusMatch && cnStatusMatch[1]) {
+        data.status = cnStatusMatch[1].trim();
       }
     }
-    
-    // Patterns for expiration date matching
-    const expirationPatterns = [
-      /Expiration Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Registry Expiry Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Expiry Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Registrar Registration Expiration Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Domain Expiration Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Expires On:\s*(.+?)(?:\r|\n|$)/i,
-      /Expires:\s*(.+?)(?:\r|\n|$)/i,
-      /Expiry:\s*(.+?)(?:\r|\n|$)/i,
-      /到期日期:\s*(.+?)(?:\r|\n|$)/i
-    ];
-    
-    for (const pattern of expirationPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.expirationDate = match[1].trim();
-        break;
+    // General case for other WHOIS formats
+    else {
+      console.log("Processing general WHOIS format");
+      
+      // Try generic patterns for all fields
+      
+      // Domain name
+      const domainNameMatch = normalizedData.match(/Domain Name:[ \t]*(.+?)(?:\n|$)/i);
+      if (domainNameMatch && domainNameMatch[1]) {
+        data.domainName = domainNameMatch[1].trim();
       }
-    }
-    
-    // Patterns for updated date matching
-    const updatedPatterns = [
-      /Updated Date:\s*(.+?)(?:\r|\n|$)/i,
-      /Last Updated On:\s*(.+?)(?:\r|\n|$)/i,
-      /Last Modified:\s*(.+?)(?:\r|\n|$)/i,
-      /Last Update:\s*(.+?)(?:\r|\n|$)/i,
-      /Updated:\s*(.+?)(?:\r|\n|$)/i,
-      /更新日期:\s*(.+?)(?:\r|\n|$)/i
-    ];
-    
-    for (const pattern of updatedPatterns) {
-      const match = rawData.match(pattern);
-      if (match && match[1] && match[1].trim()) {
-        data.updatedDate = match[1].trim();
-        break;
-      }
-    }
-    
-    // Extract status
-    const statusMatches = rawData.match(/Domain Status:\s*(.+?)(?:\r|\n|$)/ig);
-    if (statusMatches) {
-      data.status = statusMatches.map(m => {
-        const statusValue = m.replace(/Domain Status:\s*/i, '').trim();
-        return statusValue.split(/\s+/)[0]; // Often status has comments after it
-      });
-    } else {
-      const statusPatterns = [
-        /Status:\s*(.+?)(?:\r|\n|$)/i,
-        /Domain Status:\s*(.+?)(?:\r|\n|$)/i,
-        /状态:\s*(.+?)(?:\r|\n|$)/i
+      
+      // Registrar patterns
+      const registrarPatterns = [
+        /Registrar:[ \t]*(.+?)(?:\n|$)/i,
+        /Registrar Name:[ \t]*(.+?)(?:\n|$)/i,
+        /Sponsoring Registrar:[ \t]*(.+?)(?:\n|$)/i,
+        /Registration Service Provider:[ \t]*(.+?)(?:\n|$)/i,
+        /Sponsoring Registrar Organization:[ \t]*(.+?)(?:\n|$)/i,
+        /Registrant:[ \t]*(.+?)(?:\n|$)/i,
+        /Holder:[ \t]*(.+?)(?:\n|$)/i
       ];
       
-      for (const pattern of statusPatterns) {
-        const match = rawData.match(pattern);
+      for (const pattern of registrarPatterns) {
+        const match = normalizedData.match(pattern);
         if (match && match[1] && match[1].trim()) {
-          data.status = match[1].trim().split(/\s+/)[0];
+          data.registrar = match[1].trim();
           break;
         }
       }
-    }
-    
-    // Extract name servers
-    const nameServerPatterns = [
-      /Name Server:\s*(.+?)(?:\r|\n|$)/ig,
-      /nserver:\s*(.+?)(?:\r|\n|$)/ig,
-      /DNS:\s*(.+?)(?:\r|\n|$)/ig,
-      /Name Servers:\s*(.+?)(?:\r|\n|$)/ig,
-      /域名服务器:\s*(.+?)(?:\r|\n|$)/ig
-    ];
-    
-    let foundNameServers = false;
-    for (const pattern of nameServerPatterns) {
-      const matches = [];
-      let match;
       
-      while ((match = pattern.exec(rawData)) !== null) {
-        if (match[1] && match[1].trim()) {
-          matches.push(match[1].trim().toLowerCase());
+      // Creation date patterns
+      const creationPatterns = [
+        /Creation Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Created:[ \t]*(.+?)(?:\n|$)/i,
+        /Created On:[ \t]*(.+?)(?:\n|$)/i,
+        /Created Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Registration Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Domain Registration Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Domain Create Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Registration Time:[ \t]*(.+?)(?:\n|$)/i,
+        /Registered on:[ \t]*(.+?)(?:\n|$)/i,
+        /registered:[ \t]*(.+?)(?:\n|$)/i
+      ];
+      
+      for (const pattern of creationPatterns) {
+        const match = normalizedData.match(pattern);
+        if (match && match[1] && match[1].trim()) {
+          data.creationDate = match[1].trim();
+          break;
         }
       }
       
-      if (matches.length > 0) {
-        data.nameServers = matches;
-        foundNameServers = true;
-        break;
-      }
-    }
-    
-    if (!foundNameServers) {
-      // Try a different approach for name servers
-      const lines = rawData.split(/\r?\n/);
-      const nsLines = lines.filter(line => 
-        line.toLowerCase().includes('name server') || 
-        line.toLowerCase().includes('nameserver') ||
-        line.toLowerCase().includes('nserver') ||
-        line.toLowerCase().includes('dns') ||
-        line.toLowerCase().includes('域名服务器')
-      );
+      // Expiration date patterns
+      const expirationPatterns = [
+        /Expiration Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Registry Expiry Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Expiry Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Registrar Registration Expiration Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Domain Expiration Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Expires On:[ \t]*(.+?)(?:\n|$)/i,
+        /Expires:[ \t]*(.+?)(?:\n|$)/i,
+        /Expiry:[ \t]*(.+?)(?:\n|$)/i,
+        /expire:[ \t]*(.+?)(?:\n|$)/i
+      ];
       
-      if (nsLines.length > 0) {
-        data.nameServers = nsLines.map(line => {
-          const parts = line.split(/:\s+/);
-          return parts.length > 1 ? parts[1].trim().toLowerCase() : '';
-        }).filter(ns => ns.length > 0);
+      for (const pattern of expirationPatterns) {
+        const match = normalizedData.match(pattern);
+        if (match && match[1] && match[1].trim()) {
+          data.expirationDate = match[1].trim();
+          break;
+        }
       }
-    }
-    
-    // Special handling for Verisign (.com, .net) responses
-    if (rawData.includes('Whois Server Version 2.0')) {
-      // Parse Verisign format which often has >>> Domain Name: EXAMPLE.COM
-      const domainLineMatch = rawData.match(/>>> Domain Name:\s*(.+?)(?:\r|\n|$)/i);
-      if (domainLineMatch && domainLineMatch[1]) {
-        // Extract the registrar information which usually follows
-        const registrarSection = rawData.split('>>> Last update of whois database:')[0];
-        
-        if (!data.registrar) {
-          const registrarMatch = registrarSection.match(/Registrar:\s*(.+?)(?:\r|\n|$)/i);
-          if (registrarMatch && registrarMatch[1]) {
-            data.registrar = registrarMatch[1].trim();
+      
+      // Updated date patterns
+      const updatedPatterns = [
+        /Updated Date:[ \t]*(.+?)(?:\n|$)/i,
+        /Last Updated On:[ \t]*(.+?)(?:\n|$)/i,
+        /Last Modified:[ \t]*(.+?)(?:\n|$)/i,
+        /Last Update:[ \t]*(.+?)(?:\n|$)/i,
+        /Updated:[ \t]*(.+?)(?:\n|$)/i,
+        /modified:[ \t]*(.+?)(?:\n|$)/i
+      ];
+      
+      for (const pattern of updatedPatterns) {
+        const match = normalizedData.match(pattern);
+        if (match && match[1] && match[1].trim()) {
+          data.updatedDate = match[1].trim();
+          break;
+        }
+      }
+      
+      // Extract name servers
+      const nameServers: string[] = [];
+      
+      // Try different name server patterns
+      const nsPatterns = [
+        /Name Server:[ \t]*(.+?)(?:\n|$)/gi,
+        /nserver:[ \t]*(.+?)(?:\n|$)/gi,
+        /Name Servers:[ \t]*(.+?)(?:\n|$)/gi,
+        /Nameservers:[ \t]*(.+?)(?:\n|$)/gi,
+        /DNS:[ \t]*(.+?)(?:\n|$)/gi
+      ];
+      
+      for (const pattern of nsPatterns) {
+        let nsMatch;
+        while ((nsMatch = pattern.exec(normalizedData)) !== null) {
+          if (nsMatch[1] && nsMatch[1].trim()) {
+            nameServers.push(nsMatch[1].trim().toLowerCase());
           }
         }
-        
-        if (!data.creationDate) {
-          const creationMatch = registrarSection.match(/Creation Date:\s*(.+?)(?:\r|\n|$)/i);
-          if (creationMatch && creationMatch[1]) {
-            data.creationDate = creationMatch[1].trim();
-          }
-        }
-        
-        if (!data.expirationDate) {
-          const expirationMatch = registrarSection.match(/Registry Expiry Date:\s*(.+?)(?:\r|\n|$)/i);
-          if (expirationMatch && expirationMatch[1]) {
-            data.expirationDate = expirationMatch[1].trim();
-          }
-        }
+        if (nameServers.length > 0) break;
       }
-    }
-    
-    // For Chinese domains (.cn)
-    if (rawData.includes('CNNIC WHOIS') || rawData.includes('域名信息') || rawData.includes('注册商')) {
-      // Try specific Chinese patterns if not already found
-      if (!data.registrar) {
-        const cnRegistrarMatch = rawData.match(/注册商:\s*(.+?)(?:\r|\n|$)/i) || 
-                                rawData.match(/Registrar:\s*(.+?)(?:\r|\n|$)/i);
-        if (cnRegistrarMatch && cnRegistrarMatch[1]) {
-          data.registrar = cnRegistrarMatch[1].trim();
+      
+      // Special case: if name servers are listed in a block
+      if (nameServers.length === 0) {
+        const nsBlockMatch = normalizedData.match(/Name Servers:([\s\S]*?)(?:\n\n|\n[^\s]|$)/i);
+        if (nsBlockMatch && nsBlockMatch[1]) {
+          const nsBlock = nsBlockMatch[1].trim();
+          const nsLines = nsBlock.split('\n');
+          for (const line of nsLines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine && trimmedLine.includes('.')) {
+              nameServers.push(trimmedLine.toLowerCase());
+            }
+          }
         }
       }
       
-      if (!data.creationDate) {
-        const cnCreationMatch = rawData.match(/注册时间:\s*(.+?)(?:\r|\n|$)/i) || 
-                               rawData.match(/注册日期:\s*(.+?)(?:\r|\n|$)/i);
-        if (cnCreationMatch && cnCreationMatch[1]) {
-          data.creationDate = cnCreationMatch[1].trim();
+      if (nameServers.length > 0) {
+        data.nameServers = nameServers;
+      }
+      
+      // Extract status
+      const statusValues: string[] = [];
+      const statusRegex = /Domain Status:[ \t]*(.+?)(?:\n|$)/gi;
+      let statusMatch;
+      while ((statusMatch = statusRegex.exec(normalizedData)) !== null) {
+        if (statusMatch[1] && statusMatch[1].trim()) {
+          statusValues.push(statusMatch[1].trim());
         }
       }
       
-      if (!data.expirationDate) {
-        const cnExpirationMatch = rawData.match(/过期时间:\s*(.+?)(?:\r|\n|$)/i) || 
-                                 rawData.match(/到期日期:\s*(.+?)(?:\r|\n|$)/i);
-        if (cnExpirationMatch && cnExpirationMatch[1]) {
-          data.expirationDate = cnExpirationMatch[1].trim();
+      if (statusValues.length === 0) {
+        const statusPatterns = [
+          /Status:[ \t]*(.+?)(?:\n|$)/i,
+          /Domain Status:[ \t]*(.+?)(?:\n|$)/i
+        ];
+        
+        for (const pattern of statusPatterns) {
+          const match = normalizedData.match(pattern);
+          if (match && match[1] && match[1].trim()) {
+            statusValues.push(match[1].trim());
+            break;
+          }
         }
+      }
+      
+      if (statusValues.length > 0) {
+        data.status = statusValues;
       }
     }
     
@@ -449,7 +543,7 @@ const Index = () => {
         const tld = cleanQuery.split('.').pop()?.toLowerCase();
         if (tld) {
           const whoisServer = DOMAIN_WHOIS_SERVERS[tld];
-          console.log(`建议用户访问官方WHOIS查询网站查询 ${cleanQuery}`);
+          console.log(`��议用户访问官方WHOIS查询网站查询 ${cleanQuery}`);
           setResult({
             domain: cleanQuery,
             type: "domain",
@@ -634,7 +728,7 @@ const Index = () => {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-6">WHOIS 查询工具</h1>
         <p className="text-center text-muted-foreground mb-8">
-          查询域名和IP地址的详细信息，包括注册信息、到期时间、IP归属等
+          查询域名和IP地址的详细信���，包括注册信息、到期时间、IP归属等
         </p>
         
         <Card className="p-6 mb-8">
