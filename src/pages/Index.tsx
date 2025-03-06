@@ -73,43 +73,43 @@ const Index = () => {
       console.log("Detected Verisign WHOIS format");
       
       // Extract the second WHOIS lookup for Verisign responses
-      const referralWhoisMatch = normalizedData.match(/Registrar WHOIS Server:\s*(.+?)(?:\n|$)/i);
+      const referralWhoisMatch = normalizedData.match(/Registrar WHOIS Server:\s*(.+?)(?:\n|$)/);
       if (referralWhoisMatch && referralWhoisMatch[1]) {
         data.registrarWhoisServer = referralWhoisMatch[1].trim();
       }
 
       // Try to extract domain information
-      const domainMatch = normalizedData.match(/Domain Name:\s*(.+?)(?:\n|$)/i);
+      const domainMatch = normalizedData.match(/Domain Name:\s*(.+?)(?:\n|$)/);
       if (domainMatch && domainMatch[1]) {
         data.domainName = domainMatch[1].trim();
       }
 
       // Extract registrar information
-      const registrarMatch = normalizedData.match(/Registrar:\s*(.+?)(?:\n|$)/i);
+      const registrarMatch = normalizedData.match(/Registrar:\s*(.+?)(?:\n|$)/);
       if (registrarMatch && registrarMatch[1]) {
         data.registrar = registrarMatch[1].trim();
       }
 
       // Extract dates
-      const createdMatch = normalizedData.match(/Creation Date:\s*(.+?)(?:\n|$)/i);
+      const createdMatch = normalizedData.match(/Creation Date:\s*(.+?)(?:\n|$)/);
       if (createdMatch && createdMatch[1]) {
         data.creationDate = createdMatch[1].trim();
       }
 
-      const updatedMatch = normalizedData.match(/Updated Date:\s*(.+?)(?:\n|$)/i);
+      const updatedMatch = normalizedData.match(/Updated Date:\s*(.+?)(?:\n|$)/);
       if (updatedMatch && updatedMatch[1]) {
         data.updatedDate = updatedMatch[1].trim();
       }
 
-      const expiryMatch = normalizedData.match(/Registry Expiry Date:\s*(.+?)(?:\n|$)/i) || 
-                          normalizedData.match(/Registrar Registration Expiration Date:\s*(.+?)(?:\n|$)/i);
+      const expiryMatch = normalizedData.match(/Registry Expiry Date:\s*(.+?)(?:\n|$)/) || 
+                          normalizedData.match(/Registrar Registration Expiration Date:\s*(.+?)(?:\n|$)/);
       if (expiryMatch && expiryMatch[1]) {
         data.expirationDate = expiryMatch[1].trim();
       }
 
       // Extract name servers (may be multiple)
       const nameServers: string[] = [];
-      const nameServerRegex = /Name Server:\s*(.+?)(?:\n|$)/gi;
+      const nameServerRegex = /Name Server:\s*(.+?)(?:\n|$)/g;
       let nsMatch;
       while ((nsMatch = nameServerRegex.exec(normalizedData)) !== null) {
         if (nsMatch[1] && nsMatch[1].trim()) {
@@ -122,7 +122,7 @@ const Index = () => {
       
       // Extract domain status
       const statusValues: string[] = [];
-      const statusRegex = /Domain Status:\s*(.+?)(?:\n|$)/gi;
+      const statusRegex = /Domain Status:\s*(.+?)(?:\n|$)/g;
       let statusMatch;
       while ((statusMatch = statusRegex.exec(normalizedData)) !== null) {
         if (statusMatch[1] && statusMatch[1].trim()) {
@@ -140,29 +140,29 @@ const Index = () => {
       console.log("Detected Chinese WHOIS format");
       
       // Try specific Chinese patterns
-      const cnRegistrarMatch = normalizedData.match(/注册商:\s*(.+?)(?:\n|$)/i) || 
-                             normalizedData.match(/Registrar:\s*(.+?)(?:\n|$)/i);
+      const cnRegistrarMatch = normalizedData.match(/注册商:\s*(.+?)(?:\n|$)/) || 
+                             normalizedData.match(/Registrar:\s*(.+?)(?:\n|$)/);
       if (cnRegistrarMatch && cnRegistrarMatch[1]) {
         data.registrar = cnRegistrarMatch[1].trim();
       }
       
-      const cnCreationMatch = normalizedData.match(/注册时间:\s*(.+?)(?:\n|$)/i) || 
-                            normalizedData.match(/Registration Date:\s*(.+?)(?:\n|$)/i) ||
-                            normalizedData.match(/注册日期:\s*(.+?)(?:\n|$)/i);
+      const cnCreationMatch = normalizedData.match(/注册时间:\s*(.+?)(?:\n|$)/) || 
+                            normalizedData.match(/Registration Date:\s*(.+?)(?:\n|$)/) ||
+                            normalizedData.match(/注册日期:\s*(.+?)(?:\n|$)/);
       if (cnCreationMatch && cnCreationMatch[1]) {
         data.creationDate = cnCreationMatch[1].trim();
       }
       
-      const cnExpirationMatch = normalizedData.match(/过期时间:\s*(.+?)(?:\n|$)/i) || 
-                              normalizedData.match(/Expiration Date:\s*(.+?)(?:\n|$)/i) ||
-                              normalizedData.match(/到期日期:\s*(.+?)(?:\n|$)/i);
+      const cnExpirationMatch = normalizedData.match(/过期时间:\s*(.+?)(?:\n|$)/) || 
+                              normalizedData.match(/Expiration Date:\s*(.+?)(?:\n|$)/) ||
+                              normalizedData.match(/到期日期:\s*(.+?)(?:\n|$)/);
       if (cnExpirationMatch && cnExpirationMatch[1]) {
         data.expirationDate = cnExpirationMatch[1].trim();
       }
       
       // Extract name servers
       const nameServers: string[] = [];
-      const nsRegex = /DNS服务器:\s*(.+?)(?:\n|$)/gi;
+      const nsRegex = /DNS服务器:\s*(.+?)(?:\n|$)/g;
       let nsMatch;
       while ((nsMatch = nsRegex.exec(normalizedData)) !== null) {
         if (nsMatch[1] && nsMatch[1].trim()) {
@@ -171,7 +171,7 @@ const Index = () => {
       }
       if (nameServers.length === 0) {
         // Try alternative pattern
-        const nsRegex2 = /Name Server:\s*(.+?)(?:\n|$)/gi;
+        const nsRegex2 = /Name Server:\s*(.+?)(?:\n|$)/g;
         while ((nsMatch = nsRegex2.exec(normalizedData)) !== null) {
           if (nsMatch[1] && nsMatch[1].trim()) {
             nameServers.push(nsMatch[1].trim().toLowerCase());
@@ -183,8 +183,8 @@ const Index = () => {
       }
       
       // Extract status
-      const cnStatusMatch = normalizedData.match(/状态:\s*(.+?)(?:\n|$)/i) ||
-                          normalizedData.match(/Domain Status:\s*(.+?)(?:\n|$)/i);
+      const cnStatusMatch = normalizedData.match(/状态:\s*(.+?)(?:\n|$)/) ||
+                          normalizedData.match(/Domain Status:\s*(.+?)(?:\n|$)/);
       if (cnStatusMatch && cnStatusMatch[1]) {
         data.status = cnStatusMatch[1].trim();
       }
@@ -196,20 +196,20 @@ const Index = () => {
       // Try generic patterns for all fields
       
       // Domain name
-      const domainNameMatch = normalizedData.match(/Domain Name:\s*(.+?)(?:\n|$)/i);
+      const domainNameMatch = normalizedData.match(/Domain Name:\s*(.+?)(?:\n|$)/);
       if (domainNameMatch && domainNameMatch[1]) {
         data.domainName = domainNameMatch[1].trim();
       }
       
       // Registrar patterns
       const registrarPatterns = [
-        /Registrar:\s*(.+?)(?:\n|$)/i,
-        /Registrar Name:\s*(.+?)(?:\n|$)/i,
-        /Sponsoring Registrar:\s*(.+?)(?:\n|$)/i,
-        /Registration Service Provider:\s*(.+?)(?:\n|$)/i,
-        /Sponsoring Registrar Organization:\s*(.+?)(?:\n|$)/i,
-        /Registrant:\s*(.+?)(?:\n|$)/i,
-        /Holder:\s*(.+?)(?:\n|$)/i
+        /Registrar:\s*(.+?)(?:\n|$)/,
+        /Registrar Name:\s*(.+?)(?:\n|$)/,
+        /Sponsoring Registrar:\s*(.+?)(?:\n|$)/,
+        /Registration Service Provider:\s*(.+?)(?:\n|$)/,
+        /Sponsoring Registrar Organization:\s*(.+?)(?:\n|$)/,
+        /Registrant:\s*(.+?)(?:\n|$)/,
+        /Holder:\s*(.+?)(?:\n|$)/
       ];
       
       for (const pattern of registrarPatterns) {
@@ -222,16 +222,16 @@ const Index = () => {
       
       // Creation date patterns
       const creationPatterns = [
-        /Creation Date:\s*(.+?)(?:\n|$)/i,
-        /Created:\s*(.+?)(?:\n|$)/i,
-        /Created On:\s*(.+?)(?:\n|$)/i,
-        /Created Date:\s*(.+?)(?:\n|$)/i,
-        /Registration Date:\s*(.+?)(?:\n|$)/i,
-        /Domain Registration Date:\s*(.+?)(?:\n|$)/i,
-        /Domain Create Date:\s*(.+?)(?:\n|$)/i,
-        /Registration Time:\s*(.+?)(?:\n|$)/i,
-        /Registered on:\s*(.+?)(?:\n|$)/i,
-        /registered:\s*(.+?)(?:\n|$)/i
+        /Creation Date:\s*(.+?)(?:\n|$)/,
+        /Created:\s*(.+?)(?:\n|$)/,
+        /Created On:\s*(.+?)(?:\n|$)/,
+        /Created Date:\s*(.+?)(?:\n|$)/,
+        /Registration Date:\s*(.+?)(?:\n|$)/,
+        /Domain Registration Date:\s*(.+?)(?:\n|$)/,
+        /Domain Create Date:\s*(.+?)(?:\n|$)/,
+        /Registration Time:\s*(.+?)(?:\n|$)/,
+        /Registered on:\s*(.+?)(?:\n|$)/,
+        /registered:\s*(.+?)(?:\n|$)/
       ];
       
       for (const pattern of creationPatterns) {
@@ -244,15 +244,15 @@ const Index = () => {
       
       // Expiration date patterns
       const expirationPatterns = [
-        /Expiration Date:\s*(.+?)(?:\n|$)/i,
-        /Registry Expiry Date:\s*(.+?)(?:\n|$)/i,
-        /Expiry Date:\s*(.+?)(?:\n|$)/i,
-        /Registrar Registration Expiration Date:\s*(.+?)(?:\n|$)/i,
-        /Domain Expiration Date:\s*(.+?)(?:\n|$)/i,
-        /Expires On:\s*(.+?)(?:\n|$)/i,
-        /Expires:\s*(.+?)(?:\n|$)/i,
-        /Expiry:\s*(.+?)(?:\n|$)/i,
-        /expire:\s*(.+?)(?:\n|$)/i
+        /Expiration Date:\s*(.+?)(?:\n|$)/,
+        /Registry Expiry Date:\s*(.+?)(?:\n|$)/,
+        /Expiry Date:\s*(.+?)(?:\n|$)/,
+        /Registrar Registration Expiration Date:\s*(.+?)(?:\n|$)/,
+        /Domain Expiration Date:\s*(.+?)(?:\n|$)/,
+        /Expires On:\s*(.+?)(?:\n|$)/,
+        /Expires:\s*(.+?)(?:\n|$)/,
+        /Expiry:\s*(.+?)(?:\n|$)/,
+        /expire:\s*(.+?)(?:\n|$)/
       ];
       
       for (const pattern of expirationPatterns) {
@@ -265,12 +265,12 @@ const Index = () => {
       
       // Updated date patterns
       const updatedPatterns = [
-        /Updated Date:\s*(.+?)(?:\n|$)/i,
-        /Last Updated On:\s*(.+?)(?:\n|$)/i,
-        /Last Modified:\s*(.+?)(?:\n|$)/i,
-        /Last Update:\s*(.+?)(?:\n|$)/i,
-        /Updated:\s*(.+?)(?:\n|$)/i,
-        /modified:\s*(.+?)(?:\n|$)/i
+        /Updated Date:\s*(.+?)(?:\n|$)/,
+        /Last Updated On:\s*(.+?)(?:\n|$)/,
+        /Last Modified:\s*(.+?)(?:\n|$)/,
+        /Last Update:\s*(.+?)(?:\n|$)/,
+        /Updated:\s*(.+?)(?:\n|$)/,
+        /modified:\s*(.+?)(?:\n|$)/
       ];
       
       for (const pattern of updatedPatterns) {
@@ -286,11 +286,11 @@ const Index = () => {
       
       // Try different name server patterns
       const nsPatterns = [
-        /Name Server:\s*(.+?)(?:\n|$)/gi,
-        /nserver:\s*(.+?)(?:\n|$)/gi,
-        /Name Servers:\s*(.+?)(?:\n|$)/gi,
-        /Nameservers:\s*(.+?)(?:\n|$)/gi,
-        /DNS:\s*(.+?)(?:\n|$)/gi
+        /Name Server:\s*(.+?)(?:\n|$)/g,
+        /nserver:\s*(.+?)(?:\n|$)/g,
+        /Name Servers:\s*(.+?)(?:\n|$)/g,
+        /Nameservers:\s*(.+?)(?:\n|$)/g,
+        /DNS:\s*(.+?)(?:\n|$)/g
       ];
       
       for (const pattern of nsPatterns) {
@@ -305,7 +305,7 @@ const Index = () => {
       
       // Special case: if name servers are listed in a block
       if (nameServers.length === 0) {
-        const nsBlockMatch = normalizedData.match(/Name Servers:([\s\S]*?)(?:\n\n|\n[^\s]|$)/i);
+        const nsBlockMatch = normalizedData.match(/Name Servers:([\s\S]*?)(?:\n\n|\n[^\s]|$)/);
         if (nsBlockMatch && nsBlockMatch[1]) {
           const nsBlock = nsBlockMatch[1].trim();
           const nsLines = nsBlock.split('\n');
@@ -324,7 +324,7 @@ const Index = () => {
       
       // Extract status
       const statusValues: string[] = [];
-      const statusRegex = /Domain Status:\s*(.+?)(?:\n|$)/gi;
+      const statusRegex = /Domain Status:\s*(.+?)(?:\n|$)/g;
       let statusMatch;
       while ((statusMatch = statusRegex.exec(normalizedData)) !== null) {
         if (statusMatch[1] && statusMatch[1].trim()) {
@@ -334,8 +334,8 @@ const Index = () => {
       
       if (statusValues.length === 0) {
         const statusPatterns = [
-          /Status:\s*(.+?)(?:\n|$)/i,
-          /Domain Status:\s*(.+?)(?:\n|$)/i
+          /Status:\s*(.+?)(?:\n|$)/,
+          /Domain Status:\s*(.+?)(?:\n|$)/
         ];
         
         for (const pattern of statusPatterns) {

@@ -168,6 +168,7 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "com.cn": "whois.cnnic.net.cn",
   "gov.cn": "whois.cnnic.net.cn",
   "edu.cn": "whois.edu.cn",
+  "net.au": "whois.aunic.net",
   
   // CentralNIC domains
   "ae.com": "whois.centralnic.net",
@@ -210,6 +211,7 @@ export const DOMAIN_WHOIS_SERVERS: Record<string, string> = {
   "asia": "whois.nic.asia",
   "app": "whois.nic.google",
   "dev": "whois.nic.google",
+  "coop": "whois.nic.coop",
 };
 
 // Function to determine which WHOIS server to use for an IP address
